@@ -46,7 +46,7 @@ abstract class AbstractParser {
 
 		if(preg_match_all($this->pattern, $html, $rawMatches, PREG_PATTERN_ORDER))
 		{
-			$rawMatches = array_unique($rawMatches[1]);
+			$rawMatches = array_unique($rawMatches[0]);
 
 			foreach($rawMatches as $match)
 			{
@@ -91,6 +91,16 @@ abstract class AbstractParser {
 	public function getMatches()
 	{
 		return $this->matches;
+	}
+
+	/**
+	 * Returns the count of matches
+	 *
+	 * @return integer
+	 */
+	public function count()
+	{
+		return count($this->matches);
 	}
 
 	/**

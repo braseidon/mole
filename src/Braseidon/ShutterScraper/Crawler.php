@@ -1,33 +1,54 @@
 <?php namespace Braseidon\ShutterScraper;
 
+use Braseidon\ShutterScraper\Parsers\EmailParser;
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;
 
 use Exception;
 
-class ShutterScraper extends RollingCurl {
+class Crawler extends RollingCurl {
 
-	protected $ch;						// Stores the curl handler
-	protected $db;						// Stores the database connection
-	protected $startTime;				// The timestamp that caterpillar started
-
-	protected $startUrl;				// The starting URL of the crawler
-	protected $domain;					// The domain path
-	protected $crawled = 0;				// Number of crawled pages
+	private $threads = 2;			// Number of simultaneous connections
+	protected $targetUrl;			// The starting URL of the crawler
+	protected $targetScheme;		// The domain scheme
+	protected $targetDomain;		// The target domain
+	protected $maxDepth = 8;
+	protected $maxRequests = 5;		// Set a limit on requests, or 0 for unlimited [caution widdat]
 
 	/**
 	 * If the link matches anything in this array, it gets ignored
 	 *
 	 * @var array $blockedArr
 	 */
-	protected $blockedArr = [];
+	private $blockedArr = [];
+
+	/**
+	 * Time started
+	 *
+	 * @var timestamp
+	 */
+	private $startTime;
+
+	/**
+	 * Number of requests made
+	 *
+	 * @var integer
+	 */
+	private $numRequests = 0;
+
+	/**
+	 * If RollingCurl is running, this is set to 1
+	 *
+	 * @var integer
+	 */
+	protected $running = 0;
 
 	/**
 	 * The parser to be used
 	 *
 	 * @var AbstractParser $parser
 	 */
-	protected $parser;
+	public $parser;
 
 	/**
 	 * Visited URL cache handler
@@ -64,43 +85,24 @@ class ShutterScraper extends RollingCurl {
 	 *
 	 *  @access public
 	 *
-	 *  @param  string  $startUrl   The starting url for crawling
+	 *  @param  string  $targetUrl   The starting url for crawling
 	 *  @param  string  $dbUser     The database username
 	 *  @param  string  $dbPass     The database password
 	 *  @param  string  $dbName     The database name
 	 *  @param  string  $dbHost     The database host
 	 */
-	public function __construct($startUrl = null)
+	public function __construct($targetUrl = null)
 	{
-		parent::__construct();
-
 		// Memory limit
 		ini_set('memory_limit', '64M');
 
-		// RollingCurl callback
-		$this->setCallback([$this, 'parseHtml']);
+		$this->setSimultaneousLimit($this->threads)		// Set thread count
+			->setCallback([$this, 'parseHtml']);		// RollingCurl callback
 
 		// Link cache handler, email parser, and proxy handler
-		$this->cache = new CrawlerCache();
+		$this->cache = new UrlCache();
 		$this->parser = new EmailParser();
 		$this->proxies = new ProxyBag();
-
-		if($startUrl)
-		{
-			// Validate url
-			if(strpos($startUrl, 'http://') === false &&
-				strpos($startUrl, 'https://') === false)
-			{
-				throw new Exception('The starting URL must begin with "http" or "https".');
-			}
-
-			// Store the base url
-			$this->startUrl = rtrim($startUrl, '/').'/';
-			$this->startTime = date('Y-m-d H:i:s');
-			// Parse the starting URL
-			$info = parse_url($startUrl);
-			$this->domain = $info['scheme'].'://'.$info['host'];
-		}
 	}
 
 	/**
@@ -108,11 +110,35 @@ class ShutterScraper extends RollingCurl {
 	 *
 	 * @return void
 	 */
-	public function crawl()
+	public function crawl($targetUrl = null)
 	{
-		$this->addRequest($this->startUrl);		// Add initial URL to crawl list
+		if($targetUrl !== null)
+			$this->setTargetUrls($targetUrl);
+
 		$this->crawlUrls();						// Begin crawling the url
 		$this->finalizeCrawl();					// Update url counts and remove the temp table
+	}
+
+	/**
+	 * Process the variables for the target domain
+	 *
+	 * @param string $targetUrl
+	 */
+	protected function setTargetUrls($targetUrl)
+	{
+		if(strpos($targetUrl, 'http://') === false &&
+			strpos($targetUrl, 'https://') === false) {
+			throw new Exception('The starting URL must begin with "http" or "https".');
+		}
+
+		$this->startTime = date('Y-m-d H:i:s');
+		// Store the base url
+		$this->targetUrl = rtrim($targetUrl, '/') . '/';
+		$parseTarget = parse_url($this->targetUrl);
+		$this->targetScheme = $parseTarget['scheme'] . '://';
+		$this->targetDomain = $this->targetScheme . $parseTarget['host'];
+
+		$this->addRequest($this->targetUrl);
 	}
 
 	/**
@@ -126,10 +152,17 @@ class ShutterScraper extends RollingCurl {
 	{
 		if(! $this->cache->checkUrl($url))
 		{
-			$this->cache->addUrl($url);
+			// Check max
+			if($this->maxRequests > 0 && $this->numRequests >= $this->maxRequests)
+				return false;
 
 			$newRequest = new Request($url, $method);
-			$newRequest->setOptions($this->proxies->proxyCurlOpts($options));
+
+			if($this->proxies->hasProxies())
+				$newRequest->setOptions($this->proxies->setProxy());
+
+			$this->cache->addUrl($url);
+			$this->numRequests++;
 
 			return $this->add($newRequest);
 		}
@@ -144,44 +177,47 @@ class ShutterScraper extends RollingCurl {
 	 * @param string  $html      The body content
 	 * @param int     $http_code The returned HTTP code
 	 */
-	protected function parseHtml($url, $html, $http_code)
+	protected function parseHtml(Request $request, RollingCurl $rolling_curl)
 	{
-		if($http_code >= 200 && $http_code < 400 && !empty($html)) {
+		// dd($request->getResponseInfo());
+		$url = $request->getUrl();
+		$html = $request->getResponseText();
+		$http_code = array_get($request->getResponseInfo(), 'http_code');
 
-			// Add URL to index (or update count)
-			if(!$this->checkUrlExists($url, $html, $filesize))
-			{
-				$this->addUrlToIndex($url, $html, $filesize);
-			}
+		// Add URL to index (or update count)
+		$this->cache->addUrl($url);
 
-			// Find all urls on the page
-			$pattern = '/href="([^#"]*)"/i';
+		if($http_code >= 200 && $http_code < 400 && ! empty($html))
+		{
+			// Start arrays
 			$urlMatches = [];
+			$emailMatches = [];
+
+			// Parse - URL's
+			$pattern = '/href="([^#"]*)"/i';
 
 			if(preg_match_all($pattern, $html, $urlMatches, PREG_PATTERN_ORDER))
 			{
-				// Garbage collect
-				unset($html);
-
 				$urlMatches = array_unique($urlMatches[1]);
-
-				// iterate over each link found on the page
+				// dd($urlMatches);
 				foreach ($urlMatches as $k => $link)
 				{
-					// Parse URL
 					if(! $link = $this->parseLink($link))
 						continue;
-
-					// Add to requests
-					$this->addRequest($link);
 				}
 
 				// Garbage collect
 				unset($urlMatches);
-
-				// Crawl any newly found URLs
-				$this->crawlUrls();
 			}
+
+			// Parse - Emails
+			$this->parser->findMatches($html);
+
+			// Garbage collect
+			unset($html);
+
+			// Crawl any newly found URLs
+			$this->crawlUrls();
 		}
 	}
 
@@ -198,8 +234,7 @@ class ShutterScraper extends RollingCurl {
 		if(strlen($link) === 0)
 			$link = '/';
 
-		// Check blocked strings
-		if($this->checkBlockedStrings($link))
+		if(! $this->checkBlockedStrings($link))
 			return false;
 
 		// Don't allow more than maxDepth forward slashes in the URL
@@ -210,7 +245,7 @@ class ShutterScraper extends RollingCurl {
 		if(strpos($link, 'http') === false && strpos($link, '/') === 0)
 		{
 			// Prefix the full domain
-			$link = $this->domain . $link;
+			$link = $this->targetDomain . $link;
 		}
 		// Check if HTTP and WWW are in the link
 		elseif(strpos($link, 'http') === false && strpos($link, '/') === false)
@@ -218,7 +253,7 @@ class ShutterScraper extends RollingCurl {
 			if(strpos($link, 'www.') !== false)
 				return false;
 
-			$link = $this->domain . '/' . $link;
+			$link = $this->targetDomain . '/' . $link;
 		}
 		// Dont index email addresses
 		elseif(strpos($link, 'mailto:') !== false)
@@ -229,8 +264,11 @@ class ShutterScraper extends RollingCurl {
 			return false;
 		}
 		// Skip link if it isnt on the same domain
-		elseif(strpos($link, $this->domain) === false)
+		elseif(strpos($link, $this->targetDomain) === false)
 			return false;
+
+		// Add URL as request
+		$this->addRequest($link);
 
 		return $link;
 	}
@@ -262,7 +300,7 @@ class ShutterScraper extends RollingCurl {
 	 */
 	protected function crawlUrls()
 	{
-		if(! $this->running)
+		if(empty($this->pendingRequests))
 			$this->execute();
 	}
 
@@ -273,6 +311,10 @@ class ShutterScraper extends RollingCurl {
 	 */
 	private function finalizeCrawl()
 	{
-		return $this->parser->getMatches();
+		echo 'URLs pending: ' . $this->countPending() . '<br />';
+		echo 'URLs completed: ' . $this->countCompleted() . '<br />';
+		echo 'URLs active: ' . $this->countActive() . '<br />';
+		echo 'Total Emails grabbed: ' . $this->parser->count() . '<br />';
+		echo 'Total URLs grabbed: ' . $this->cache->count() . '<br />';
 	}
 }

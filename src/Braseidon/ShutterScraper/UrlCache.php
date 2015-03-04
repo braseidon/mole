@@ -1,6 +1,6 @@
 <?php namespace Braseidon\ShutterScraper;
 
-class CrawlerCache {
+class UrlCache {
 
 	/**
 	 * Handles checking for first page requests
@@ -65,6 +65,26 @@ class CrawlerCache {
 	private function clean($url)
 	{
 		return str_ireplace(['http://', 'https://', 'www.'], '', rtrim($url, '/'));
+	}
+
+	/**
+	 * Return the URL array
+	 *
+	 * @return array
+	 */
+	public function getUrls()
+	{
+		return $this->cacheHistory;
+	}
+
+	/**
+	 * Returns the count of URLs
+	 *
+	 * @return integer
+	 */
+	public function count()
+	{
+		return count($this->cacheHistory);
 	}
 
 }
