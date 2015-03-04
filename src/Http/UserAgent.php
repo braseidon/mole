@@ -1,4 +1,4 @@
-<?php namespace Braseidon\ShutterScraper;
+<?php namespace Braseidon\ShutterScraper\Http;
 
 class UserAgent {
 
@@ -7,7 +7,7 @@ class UserAgent {
 	 *
 	 * @return string
 	 */
-	public static function generate()
+	public static function generate($options = [])
 	{
 		$netClr = [];
 		$sysNtv = [];
@@ -52,6 +52,8 @@ class UserAgent {
 		$agents[8] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ") Gecko/" . $date." Firefox/17.0";
 		$agents[9] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randOne] . ")";
 
-		return $agents[$randOne];
+		$options[CURLOPT_USERAGENT] = $agents[$randOne];
+
+		return $options;
 	}
 }

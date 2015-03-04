@@ -1,6 +1,6 @@
 <?php namespace Braseidon\ShutterScraper;
 
-class UrlCache {
+class Index {
 
 	/**
 	 * Handles checking for first page requests

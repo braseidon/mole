@@ -1,8 +1,8 @@
-<?php namespace Braseidon\ShutterScraper;
+<?php namespace Braseidon\ShutterScraper\Http;
 
 use Exception;
 
-class ProxyBag {
+class Proxy {
 
 	/**
 	 * Array of proxies for scraping
@@ -17,28 +17,28 @@ class ProxyBag {
 	}
 
 	/**
-	 * Sets the Curl object's proxy curlOpts using a random proxy
+	 * Sets the Curl object's proxy options using a random proxy
 	 *
-	 * @param array $curlOpts
+	 * @param array $options
 	 */
-	public function setProxy($curlOpts = [])
+	public function setProxy($options = [])
 	{
 		// Grab random proxy
 		if(! $proxy = $this->getProxy())
 		{
-			return false;
+			return $options;
 			// throw new Exception('No proxy was returned!');
 		}
 
 		// Set the Curl object's options
-		$curlOpts[CURLOPT_PROXY]		= $proxy['ip'];
-		$curlOpts[CURLOPT_PROXYPORT]	= $proxy['port'];
+		$options[CURLOPT_PROXY]		= $proxy['ip'];
+		$options[CURLOPT_PROXYPORT]	= $proxy['port'];
 
 		// Apply user and pass if not null
 		if(! empty($proxy['username']) && ! empty($proxy['password']))
-			$curlOpts[CURLOPT_PROXYUSERPWD] = $proxy['username'] . ':' . $proxy['password'];
+			$options[CURLOPT_PROXYUSERPWD] = $proxy['username'] . ':' . $proxy['password'];
 
-		return $curlOpts;
+		return $options;
 	}
 
 	/**
