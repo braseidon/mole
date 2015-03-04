@@ -13,7 +13,7 @@ class Crawler extends RollingCurl {
 	protected $targetScheme;		// The domain scheme
 	protected $targetDomain;		// The target domain
 	protected $maxDepth = 8;
-	protected $maxRequests = 5;		// Set a limit on requests, or 0 for unlimited [caution widdat]
+	protected $maxRequests = 10;		// Set a limit on requests, or 0 for unlimited [caution widdat]
 
 	/**
 	 * If the link matches anything in this array, it gets ignored
@@ -70,9 +70,10 @@ class Crawler extends RollingCurl {
 	 * @var array
 	 */
 	public $options = [
-		CURLOPT_SSL_VERIFYHOST => false,
-		CURLOPT_SSL_VERIFYPEER => false,
-		CURLOPT_RETURNTRANSFER	=> 1,
+		CURLOPT_USERAGENT		=> 'Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0)',
+		CURLOPT_SSL_VERIFYHOST	=> false,
+		CURLOPT_SSL_VERIFYPEER	=> false,
+		CURLOPT_RETURNTRANSFER	=> true,
 		CURLOPT_CONNECTTIMEOUT	=> 10,
 		CURLOPT_TIMEOUT			=> 20,
 		CURLOPT_FOLLOWLOCATION	=> true,
@@ -81,17 +82,9 @@ class Crawler extends RollingCurl {
 	];
 
 	/**
-	 *  Default constructor.
-	 *
-	 *  @access public
-	 *
-	 *  @param  string  $targetUrl   The starting url for crawling
-	 *  @param  string  $dbUser     The database username
-	 *  @param  string  $dbPass     The database password
-	 *  @param  string  $dbName     The database name
-	 *  @param  string  $dbHost     The database host
+	 *  Instantiate the Object
 	 */
-	public function __construct($targetUrl = null)
+	public function __construct()
 	{
 		// Memory limit
 		ini_set('memory_limit', '64M');
@@ -133,12 +126,12 @@ class Crawler extends RollingCurl {
 
 		$this->startTime = date('Y-m-d H:i:s');
 		// Store the base url
-		$this->targetUrl = rtrim($targetUrl, '/') . '/';
-		$parseTarget = parse_url($this->targetUrl);
+		$targetUrl = rtrim($targetUrl, '/');
+		$parseTarget = parse_url($targetUrl);
 		$this->targetScheme = $parseTarget['scheme'] . '://';
 		$this->targetDomain = $this->targetScheme . $parseTarget['host'];
 
-		$this->addRequest($this->targetUrl);
+		$this->addRequest($targetUrl);
 	}
 
 	/**
@@ -152,14 +145,20 @@ class Crawler extends RollingCurl {
 	{
 		if(! $this->cache->checkUrl($url))
 		{
-			// Check max
+			// Check request max
 			if($this->maxRequests > 0 && $this->numRequests >= $this->maxRequests)
 				return false;
 
 			$newRequest = new Request($url, $method);
-
+			$options = $this->options;
+			// Proxy
 			if($this->proxies->hasProxies())
-				$newRequest->setOptions($this->proxies->setProxy());
+				$options = $this->proxies->setProxy($options);
+
+			// UserAgent
+			$options[CURLOPT_USERAGENT] = UserAgent::generate();
+			// Reset options
+			$newRequest->setOptions($options);
 
 			$this->cache->addUrl($url);
 			$this->numRequests++;
@@ -199,7 +198,7 @@ class Crawler extends RollingCurl {
 			if(preg_match_all($pattern, $html, $urlMatches, PREG_PATTERN_ORDER))
 			{
 				$urlMatches = array_unique($urlMatches[1]);
-				// dd($urlMatches);
+
 				foreach ($urlMatches as $k => $link)
 				{
 					if(! $link = $this->parseLink($link))
@@ -281,7 +280,7 @@ class Crawler extends RollingCurl {
 	 */
 	protected function checkBlockedStrings($link)
 	{
-		if(count($this->blockedArr) == 0)
+		if(empty($this->blockedArr))
 			return true;
 
 		foreach($this->blockedArr as $blocked)

@@ -18,10 +18,12 @@ class ShutterScraperServiceProvider extends ServiceProvider {
      */
     public function register()
     {
-        $this->app->bind('Braseidon\\ShutterScraper', function()
+        $app->singleton('shutterscraper', function($app)
         {
-        	return
-        })
+        	return new Crawler();
+        });
+
+        $app->alias('shutterscraper', 'Braseidon\ShutterScraper\Crawler');
     }
 
     /**
@@ -31,6 +33,6 @@ class ShutterScraperServiceProvider extends ServiceProvider {
      */
     public function provides()
     {
-        return ['commander'];
+        return ['shutterscraper'];
     }
 }
