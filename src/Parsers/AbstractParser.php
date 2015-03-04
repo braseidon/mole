@@ -4,6 +4,8 @@ use Exception;
 
 abstract class AbstractParser {
 
+	protected $crawler;
+
 	/**
 	 * Array of matches found
 	 *
@@ -24,6 +26,13 @@ abstract class AbstractParser {
 	 * @var integer
 	 */
 	protected $batchCount = 0;
+
+	/**
+	 * Array of blocked strings
+	 *
+	 * @var array
+	 */
+	protected $blockedArr = [];
 
 	/**
 	 * Instantiate the Object

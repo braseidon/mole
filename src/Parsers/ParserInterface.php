@@ -8,5 +8,5 @@ interface ParserInterface {
 	 * @param  string $html
 	 * @return bool
 	 */
-	public function findMatches($html);
+	// public function findMatches($html);
 }

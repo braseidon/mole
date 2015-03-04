@@ -1,5 +1,7 @@
 <?php namespace Braseidon\ShutterScraper\Parsers;
 
+use RollingCurl\Request;
+
 class LinkParser extends AbstractParser implements ParserInterface {
 
 	/**
@@ -9,10 +11,44 @@ class LinkParser extends AbstractParser implements ParserInterface {
 	 */
 	protected $pattern = '/href="([^#"]*)"/i';
 
-	protected function findMatches($html)
+	/**
+	 * Folder depth limit for crawling
+	 *
+	 * @var integer
+	 */
+	protected $maxDepth = 8;
+
+	/**
+	 * The target domain
+	 *
+	 * @var string
+	 */
+	protected $targetDomain = null;
+
+	/**
+	 * Manually set the target domain
+	 *
+	 * @param string $targetDomain
+	 */
+	public function setTargetDomain($targetDomain)
+	{
+		$this->targetDomain = $targetDomain;
+	}
+
+	/**
+	 * Get the target domain
+	 *
+	 * @param string $targetDomain
+	 */
+	public function getTargetDomain()
+	{
+		return $this->targetDomain;
+	}
+
+	public function findMatches($html)
 	{
 		// Parse - URL's
-		if(preg_match_all($pattern, $html, $urlMatches, PREG_PATTERN_ORDER))
+		if(preg_match_all($this->pattern, $html, $urlMatches, PREG_PATTERN_ORDER))
 		{
 			$urlMatches = array_unique($urlMatches[1]);
 
@@ -22,11 +58,16 @@ class LinkParser extends AbstractParser implements ParserInterface {
 				{
 					continue;
 				}
+
+				// Add URL as request
+				$this->addMatch($link);
 			}
 
 			// Garbage collect
-			unset($urlMatches);
+			unset($urlMatches, $html);
 		}
+
+		return $this->getMatches();
 	}
 
 	/**
@@ -76,9 +117,30 @@ class LinkParser extends AbstractParser implements ParserInterface {
 			return false;
 		}
 
-		// Add URL as request
-		$this->addMatch($link);
-
 		return $link;
+	}
+
+	/**
+	 * Check the link against blocked strings
+	 *
+	 * @param  string $link
+	 * @return bool
+	 */
+	protected function checkBlockedStrings($link)
+	{
+		if(empty($this->blockedArr))
+		{
+			return true;
+		}
+
+		foreach($this->blockedArr as $blocked)
+		{
+			if(strpos($link, $blocked) !== false)
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 }

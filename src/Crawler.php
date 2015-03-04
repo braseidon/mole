@@ -3,6 +3,7 @@
 use Braseidon\ShutterScraper\Http\Proxy;
 use Braseidon\ShutterScraper\Http\UserAgent;
 use Braseidon\ShutterScraper\Parsers\EmailParser;
+use Braseidon\ShutterScraper\Parsers\LinkParser;
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;
 
@@ -12,10 +13,9 @@ class Crawler extends RollingCurl {
 
 	protected $targetUrl;				// The starting URL of the crawler
 	protected $targetScheme;			// The domain scheme
-	protected $targetDomain;			// The target domain
+	public $targetDomain;				// The target domain
 
 	protected $threads = 2;				// Number of simultaneous connections
-	protected $maxDepth = 8;
 	protected $maxRequests = 3;			// Set a limit on requests, or 0 for unlimited [caution widdat]
 	protected $numRequests = 0;			// Number of requests added
 
@@ -43,14 +43,14 @@ class Crawler extends RollingCurl {
 	 *
 	 * @var LinkParser
 	 */
-	public $parserLinks;
+	public $linkParser;
 
 	/**
 	 * The parser for emails
 	 *
 	 * @var EmailParser
 	 */
-	public $parserEmails;
+	public $emailParser;
 
 	/**
 	 * Visited URL index handler
@@ -96,8 +96,9 @@ class Crawler extends RollingCurl {
 
 		// Link index handler, email parser, and proxy handler
 		$this->index		= new Index();
-		$this->parserEmails	= new EmailParser();
 		$this->proxies		= new Proxy();
+		$this->linkParser	= new LinkParser();
+		$this->emailParser	= new EmailParser();
 	}
 
 	/**
@@ -110,6 +111,7 @@ class Crawler extends RollingCurl {
 		if($targetUrl !== null)
 		{
 			$this->setTargetUrls($targetUrl);
+			$this->addRequest($targetUrl);
 		}
 
 		$this->crawlUrls();
@@ -136,7 +138,7 @@ class Crawler extends RollingCurl {
 		$this->targetScheme = $parseTarget['scheme'] . '://';
 		$this->targetDomain = $this->targetScheme . $parseTarget['host'];
 
-		$this->addRequest($targetUrl);
+		$this->linkParser->getTargetDomain($this->targetDomain);
 	}
 
 	/**
@@ -174,9 +176,9 @@ class Crawler extends RollingCurl {
 	/**
 	 * Process the returned HTML with our parsers
 	 *
-	 * @param string  $url       The url requested
-	 * @param string  $html      The body content
-	 * @param int     $http_code The returned HTTP code
+	 * @param  Request     $request
+	 * @param  RollingCurl $rolling_curl
+	 * @return [type]
 	 */
 	protected function parseHtml(Request $request, RollingCurl $rolling_curl)
 	{
@@ -190,10 +192,11 @@ class Crawler extends RollingCurl {
 
 		if($http_code >= 200 && $http_code < 400 && ! empty($html))
 		{
-			$this->parserLinks->findMatches($html);
+			// Parse - Links
+			$this->linkParser->findMatches($html);
 
 			// Parse - Emails
-			$this->parserEmails->findMatches($html);
+			$this->emailParser->findMatches($html);
 
 			// Garbage collect
 			unset($html);
@@ -201,30 +204,6 @@ class Crawler extends RollingCurl {
 			// Crawl any newly found URLs
 			$this->crawlUrls();
 		}
-	}
-
-	/**
-	 * Check the link against blocked strings
-	 *
-	 * @param  string $link
-	 * @return bool
-	 */
-	protected function checkBlockedStrings($link)
-	{
-		if(empty($this->blockedArr))
-		{
-			return true;
-		}
-
-		foreach($this->blockedArr as $blocked)
-		{
-			if(strpos($link, $blocked) !== false)
-			{
-				return false;
-			}
-		}
-
-		return true;
 	}
 
 	/**
