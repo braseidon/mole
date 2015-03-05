@@ -11,12 +11,8 @@ use Exception;
 
 class Crawler extends RollingCurl {
 
-	protected $targetUrl;				// The starting URL of the crawler
-	protected $targetScheme;			// The domain scheme
-	public $targetDomain;				// The target domain
-
 	protected $threads = 2;				// Number of simultaneous connections
-	protected $maxRequests = 3;			// Set a limit on requests, or 0 for unlimited [caution widdat]
+	protected $maxRequests = 2;			// Set a limit on requests, or 0 for unlimited [caution widdat]
 	protected $numRequests = 0;			// Number of requests added
 
 	/**
@@ -24,7 +20,7 @@ class Crawler extends RollingCurl {
      *
      * @var array
      */
-    public $config;
+    protected $config;
 
 	/**
 	 * @var timestamp
@@ -43,37 +39,37 @@ class Crawler extends RollingCurl {
 	 *
 	 * @var LinkParser
 	 */
-	public $linkParser;
+	protected $linkParser;
 
 	/**
 	 * The parser for emails
 	 *
 	 * @var EmailParser
 	 */
-	public $emailParser;
+	protected $emailParser;
 
 	/**
 	 * Visited URL index handler
 	 *
 	 * @var CrawlerCache $index
 	 */
-	public $index;
+	protected $index;
 
 	/**
 	 * Proxy handler
 	 *
 	 * @var ProxyBag $proxies
 	 */
-	public $proxies;
+	protected $proxies;
 
 	/**
 	 * Default options for every Curl request
 	 *
 	 * @var array
 	 */
-	public $options = [
-		CURLOPT_SSL_VERIFYHOST	=> false,
-		CURLOPT_SSL_VERIFYPEER	=> false,
+	protected $options = [
+		CURLOPT_SSL_VERIFYHOST	=> 2,
+		CURLOPT_SSL_VERIFYPEER	=> 1,
 		CURLOPT_RETURNTRANSFER	=> true,
 		CURLOPT_CONNECTTIMEOUT	=> 10,
 		CURLOPT_TIMEOUT			=> 20,
@@ -89,6 +85,8 @@ class Crawler extends RollingCurl {
 	{
 		// Memory limit
 		ini_set('memory_limit', '64M');
+
+		$this->startTime = date('Y-m-d H:i:s');
 
 		$this->config = $config;
 		$this->setSimultaneousLimit($this->threads);
@@ -119,26 +117,17 @@ class Crawler extends RollingCurl {
 	}
 
 	/**
-	 * Process the variables for the target domain
+	 * Add multiple requests
 	 *
-	 * @param string $targetUrl
+	 * @param array  $urls
+	 * @param string $method
 	 */
-	protected function setTargetUrls($targetUrl)
+	public function addRequests(array $urls, $method = "GET")
 	{
-		if(strpos($targetUrl, 'http://') !== false && strpos($targetUrl, 'https://') !== false)
+		foreach($urls as $url)
 		{
-			throw new Exception('The starting URL must begin with "http" or "https".');
+			$this->addRequest($url, $method);
 		}
-
-		$this->startTime = date('Y-m-d H:i:s');
-
-		$targetUrl = rtrim($targetUrl, '/');
-		$parseTarget = parse_url($targetUrl);
-
-		$this->targetScheme = $parseTarget['scheme'] . '://';
-		$this->targetDomain = $this->targetScheme . $parseTarget['host'];
-
-		$this->linkParser->getTargetDomain($this->targetDomain);
 	}
 
 	/**
@@ -150,7 +139,7 @@ class Crawler extends RollingCurl {
 	 */
 	public function addRequest($url, $method = "GET", $options = [])
 	{
-		if($this->maxRequests > 0 && $this->numRequests >= $this->maxRequests)
+		if($this->maxRequests > 0 and $this->numRequests >= $this->maxRequests)
 		{
 			return false;
 		}
@@ -159,10 +148,7 @@ class Crawler extends RollingCurl {
 		{
 			$request = new Request($url, $method);
 
-			$request->addOptions([
-					UserAgent::generate(),
-					$this->proxies->setProxy()
-				]);
+			$request->addOptions([UserAgent::generate(), $this->proxies->setProxy()]);
 
 			$this->index->addUrl($url);
 			$this->numRequests++;
@@ -171,39 +157,6 @@ class Crawler extends RollingCurl {
 		}
 
 		return false;
-	}
-
-	/**
-	 * Process the returned HTML with our parsers
-	 *
-	 * @param  Request     $request
-	 * @param  RollingCurl $rolling_curl
-	 * @return [type]
-	 */
-	protected function parseHtml(Request $request, RollingCurl $rolling_curl)
-	{
-		$response	= $request->getResponseInfo();
-		$url		= array_get($response, 'url');
-		$http_code	= array_get($response, 'http_code');
-		$html = $request->getResponseText();
-
-		// Add URL to index (or update count)
-		$this->index->addUrl($url);
-
-		if($http_code >= 200 && $http_code < 400 && ! empty($html))
-		{
-			// Parse - Links
-			$this->linkParser->findMatches($html);
-
-			// Parse - Emails
-			$this->emailParser->findMatches($html);
-
-			// Garbage collect
-			unset($html);
-
-			// Crawl any newly found URLs
-			$this->crawlUrls();
-		}
 	}
 
 	/**
@@ -221,7 +174,22 @@ class Crawler extends RollingCurl {
 
 	protected function finalizeCrawl()
 	{
-		//
+		echo 'Requests pending: ' . $this->countPending() . '<br />';
+		echo 'Requests completed: ' . $this->countCompleted() . '<br />';
+		echo 'Requests active: ' . $this->countActive() . '<br />';
+		echo 'Total Emails grabbed: ' . $this->emailParser->count() . '<br />';
+		echo 'Total URLs grabbed: ' . $this->index->count() . '<br />';
+	}
+
+	/**
+	 * Import proxies for use with scraping
+	 *
+	 * @param  string|array $proxies
+	 * @return array
+	 */
+	public function importProxies($proxies)
+	{
+		return $this->proxies->import($proxies);
 	}
 
 }

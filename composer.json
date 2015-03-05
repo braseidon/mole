@@ -1,7 +1,7 @@
 {
     "name": "braseidon/shutterscraper",
     "description": "ShutterScraper is a fast and efficient web scraper that targets various forms of data.",
-    "keywords": ["scrape", "scraper", "rollingcurl", "curl", "multi", "thread", "scraping"],
+    "keywords": ["scrape", "rollingcurl", "multi", "curl", "parallel", "requests", "asynchronous", "proxy", "anonymous"],
     "homepage": "https://github.com/BraSeidon/ShutterScraper",
     "license": "MIT",
     "authors": [

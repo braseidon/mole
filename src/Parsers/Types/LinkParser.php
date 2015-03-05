@@ -1,8 +1,8 @@
-<?php namespace Braseidon\ShutterScraper\Parsers;
+<?php namespace Braseidon\ShutterScraper\Parsers\Types;
 
 use RollingCurl\Request;
 
-class LinkParser extends AbstractParser implements ParserInterface {
+class LinkParser extends AbstractParser implements ParserTypeInterface {
 
 	/**
 	 * Regex pattern
@@ -84,17 +84,17 @@ class LinkParser extends AbstractParser implements ParserInterface {
 		{
 			$link = '/';
 		}
-
+		// Check blocked strings
 		if(! $this->checkBlockedStrings($link))
 		{
 			return false;
 		}
-
+		// Check depth vs our specified max depth
 		if($this->maxDepth > 0 && strpos($link, 'http') === false && substr_count($link, '/') > $this->maxDepth)
 		{
 			return false;
 		}
-
+		// Links without the domain, begins with slash
 		if(strpos($link, 'http') === false && strpos($link, '/') === 0)
 		{
 			$link = $this->targetDomain . $link;
@@ -108,10 +108,12 @@ class LinkParser extends AbstractParser implements ParserInterface {
 
 			$link = $this->targetDomain . '/' . $link;
 		}
+		// Email links
 		elseif(strpos($link, 'mailto:') !== false)
 		{
 			return false;
 		}
+		// Links that aren't on the target domain
 		elseif(strpos($link, $this->targetDomain) === false)
 		{
 			return false;

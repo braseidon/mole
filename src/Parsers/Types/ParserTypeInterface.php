@@ -1,6 +1,6 @@
-<?php namespace Braseidon\ShutterScraper\Parsers;
+<?php namespace Braseidon\ShutterScraper\Parsers\Types;
 
-interface ParserInterface {
+interface ParserTypeInterface {
 
 	/**
 	 * Finds matches in the HTML

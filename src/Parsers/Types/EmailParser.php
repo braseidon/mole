@@ -1,6 +1,6 @@
-<?php namespace Braseidon\ShutterScraper\Parsers;
+<?php namespace Braseidon\ShutterScraper\Parsers\Types;
 
-class EmailParser extends AbstractParser implements ParserInterface {
+class EmailParser extends AbstractParser implements ParserTypeInterface {
 
 	/**
 	 * Regex pattern

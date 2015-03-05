@@ -1,4 +1,4 @@
-<?php namespace Braseidon\ShutterScraper\Parsers;
+<?php namespace Braseidon\ShutterScraper\Parsers\Types;
 
 use Exception;
 
