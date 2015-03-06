@@ -1,120 +1,75 @@
-<?php namespace Braseidon\ShutterScraper;
+<?php namespace Braseidon\Scraper;
 
-use Braseidon\ShutterScraper\Http\Proxy;
-use Braseidon\ShutterScraper\Http\UserAgent;
-use Braseidon\ShutterScraper\Parsers\EmailParser;
-use Braseidon\ShutterScraper\Parsers\LinkParser;
+use Braseidon\Scraper\Parsers\HtmlParserFactory;
+use Braseidon\Scraper\Parsers\HtmlParserInterface;
+use Braseidon\Scraper\Traits\CrawlerOptionsTrait;
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;
 
 use Exception;
 
-class Crawler extends RollingCurl {
+class Crawler { // extends RollingCurl
 
-	protected $threads = 2;				// Number of simultaneous connections
-	protected $maxRequests = 2;			// Set a limit on requests, or 0 for unlimited [caution widdat]
-	protected $numRequests = 0;			// Number of requests added
+	use CrawlerOptionsTrait;
 
-	/**
-     * Configuration parameters.
-     *
-     * @var array
-     */
-    protected $config;
+	protected $numRequests = 0;
 
 	/**
-	 * @var timestamp
-	 */
-	public $startTime;
-
-	/**
-	 * If RollingCurl is running, this is set to 1
-	 *
-	 * @var integer
-	 */
-	protected $running = 0;
-
-	/**
-	 * The parser for links
-	 *
-	 * @var LinkParser
-	 */
-	protected $linkParser;
-
-	/**
-	 * The parser for emails
-	 *
-	 * @var EmailParser
-	 */
-	protected $emailParser;
-
-	/**
-	 * Visited URL index handler
-	 *
-	 * @var CrawlerCache $index
-	 */
-	protected $index;
-
-	/**
-	 * Proxy handler
-	 *
-	 * @var ProxyBag $proxies
-	 */
-	protected $proxies;
-
-	/**
-	 * Default options for every Curl request
+	 * Configuration parameters.
 	 *
 	 * @var array
 	 */
-	protected $options = [
-		CURLOPT_SSL_VERIFYHOST	=> 2,
-		CURLOPT_SSL_VERIFYPEER	=> 1,
-		CURLOPT_RETURNTRANSFER	=> true,
-		CURLOPT_CONNECTTIMEOUT	=> 10,
-		CURLOPT_TIMEOUT			=> 20,
-		CURLOPT_FOLLOWLOCATION	=> true,
-		CURLOPT_MAXREDIRS		=> 5,
-		CURLOPT_HEADER			=> 0,
-	];
+	protected $config;
+
+	/**
+	 * The HTMLParser
+	 *
+	 * @var HtmlParser $proxies
+	 */
+	protected $htmlParser;
+
+	/**
+	 * Default curlOptions for every Curl request
+	 *
+	 * @var array
+	 */
+	protected $curlOptions;
 
 	/**
 	 *  Instantiate the Object
 	 */
-	public function __construct($config = [])
+	public function __construct(array $config = [])
 	{
-		// Memory limit
-		ini_set('memory_limit', '64M');
-
-		$this->startTime = date('Y-m-d H:i:s');
-
 		$this->config = $config;
-		$this->setSimultaneousLimit($this->threads);
-		$this->setCallback([$this, 'parseHtml']);
 
-		// Link index handler, email parser, and proxy handler
-		$this->index		= new Index();
-		$this->proxies		= new Proxy();
-		$this->linkParser	= new LinkParser();
-		$this->emailParser	= new EmailParser();
+		$this->setHtmlParser($this->getHtmlParser());
+
+		// $this->setCallback([$this->htmlParser, 'parseHtml']);
 	}
 
 	/**
-	 * Begins the crawling process.
+	 * Instantiate the HtmlParser
 	 *
-	 * @return void
+	 * @param HtmlParser
 	 */
-	public function crawl($targetUrl = null)
+	public function setHtmlParser(HtmlParserInterface $htmlParser)
 	{
-		if($targetUrl !== null)
-		{
-			$this->setTargetUrls($targetUrl);
-			$this->addRequest($targetUrl);
-		}
-
-		$this->crawlUrls();
-		$this->finalizeCrawl();
+		$this->htmlParser = $htmlParser;
 	}
+
+	/**
+	 * Get the HtmlParser
+	 *
+	 * @return HtmlParser
+	 */
+	public function getHtmlParser()
+	{
+		return HtmlParserFactory::create($this->config)->getHtmlParser();
+	}
+
+
+
+
 
 	/**
 	 * Add multiple requests
@@ -148,7 +103,7 @@ class Crawler extends RollingCurl {
 		{
 			$request = new Request($url, $method);
 
-			$request->addOptions([UserAgent::generate(), $this->proxies->setProxy()]);
+			$request->addOptions($this->getRequestOptions());
 
 			$this->index->addUrl($url);
 			$this->numRequests++;
@@ -160,11 +115,24 @@ class Crawler extends RollingCurl {
 	}
 
 	/**
+	 * Get a new Request's curl options
+	 *
+	 * @return array
+	 */
+	public function getRequestOptions()
+	{
+		return [
+			UserAgent::generate(),
+			$this->proxies->setProxy(),
+		];
+	}
+
+	/**
 	 * Execute RollingCurl if this isn't running
 	 *
 	 * @return void
 	 */
-	protected function crawlUrls()
+	public function crawlUrls()
 	{
 		if(empty($this->pendingRequests))
 		{
@@ -180,16 +148,4 @@ class Crawler extends RollingCurl {
 		echo 'Total Emails grabbed: ' . $this->emailParser->count() . '<br />';
 		echo 'Total URLs grabbed: ' . $this->index->count() . '<br />';
 	}
-
-	/**
-	 * Import proxies for use with scraping
-	 *
-	 * @param  string|array $proxies
-	 * @return array
-	 */
-	public function importProxies($proxies)
-	{
-		return $this->proxies->import($proxies);
-	}
-
 }

@@ -1,12 +1,28 @@
-<?php namespace Braseidon\ShutterScraper\Parsers;
+<?php namespace Braseidon\Scraper\Parsers;
 
 class ParserFactory {
 
 	/**
-	 * Configuration parameters.
+	 * Configuration
+	 *
 	 * @var array
 	 */
 	protected $config;
+
+	/**
+	 * The parser for links
+	 *
+	 * @var LinkParser
+	 */
+	protected $linkParser;
+
+	/**
+	 * The parser for emails
+	 *
+	 * @var EmailParser
+	 */
+	protected $emailParser;
+
 	/**
 	 * Create ParserFactory
 	 *

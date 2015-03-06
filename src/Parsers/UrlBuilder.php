@@ -1,4 +1,4 @@
-<?php namespace Braseidon\ShutterScraper\Parsers;
+<?php namespace Braseidon\Scraper\Parsers;
 
 use InvalidArgumentException;
 

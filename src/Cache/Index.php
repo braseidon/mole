@@ -1,4 +1,4 @@
-<?php namespace Braseidon\ShutterScraper;
+<?php namespace Braseidon\Scraper;
 
 class Index {
 

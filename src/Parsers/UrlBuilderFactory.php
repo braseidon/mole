@@ -1,4 +1,4 @@
-<?php Braseidon\ShutterScraper\Parsers;
+<?php Braseidon\Scraper\Parsers;
 
 class UrlBuilderFactory {
 

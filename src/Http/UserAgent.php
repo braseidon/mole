@@ -1,4 +1,4 @@
-<?php namespace Braseidon\ShutterScraper\Http;
+<?php namespace Braseidon\Scraper\Http;
 
 class UserAgent {
 

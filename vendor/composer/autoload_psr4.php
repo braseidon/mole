@@ -6,5 +6,5 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
-    'Braseidon\\ShutterScraper\\' => array($baseDir . '/src'),
+    'Braseidon\\Scraper\\' => array($baseDir . '/src'),
 );

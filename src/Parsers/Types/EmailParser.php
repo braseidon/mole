@@ -1,4 +1,4 @@
-<?php namespace Braseidon\ShutterScraper\Parsers\Types;
+<?php namespace Braseidon\Scraper\Parsers\Types;
 
 class EmailParser extends AbstractParser implements ParserTypeInterface {
 
