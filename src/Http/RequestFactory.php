@@ -3,26 +3,25 @@
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;
 
-class RequestFactory {
+class RequestFactory
+{
 
-	/**
-	 * Configuration parameters
-	 *
-	 * @var array
-	 */
-	protected $config;
+    /**
+     * Configuration parameters
+     *
+     * @var array
+     */
+    protected $config;
 
-	/**
-	 * Create RollingCurl\Request object
-	 *
-	 * @param array $config Configuration parameters.
-	 */
-	public function __construct(array $config)
-	{
-		$this->config = $config;
-	}
+    /**
+     * Create RollingCurl\Request object
+     *
+     * @param array $config Configuration parameters.
+     */
+    public function __construct(array $config)
+    {
+        $this->config = $config;
+    }
 
-	protected $options;
-
-
+    protected $options;
 }
