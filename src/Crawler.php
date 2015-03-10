@@ -1,6 +1,6 @@
 <?php namespace Braseidon\Scraper;
 
-use Braseidon\Scraper\Http\Proxy;
+use Braseidon\Scraper\Http\ProxyInterface;
 use Braseidon\Scraper\Parser\HtmlParser;
 use Braseidon\Scraper\Parser\HtmlParserFactory;
 use Braseidon\Scraper\Traits\CrawlerOptions;
@@ -43,20 +43,25 @@ class Crawler
     /**
      *  Instantiate the Object
      */
-    public function __construct(HtmlParser $htmlParser, Worker $worker, Proxy $proxy)
+    public function __construct(HtmlParser $htmlParser, Worker $worker, ProxyInterface $proxy)
     {
         $this->setHtmlParser($htmlParser);
         $this->setWorker($worker);
         $this->setProxy($proxy);
 
-        $crawler->getWorker()->setCallback([$this->htmlParser, 'callback']);
-
+        // $this->getWorker()->setCallback([$this->htmlParser, 'callback']);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Setters & Getters
+    |--------------------------------------------------------------------------
+    |
+    |
+    */
+
     /**
-     * Instantiate the HtmlParser
-     *
-     * @param HtmlParser
+     * @param HtmlParser Instantiate the HtmlParser
      */
     public function setHtmlParser(HtmlParser $htmlParser)
     {
@@ -64,9 +69,7 @@ class Crawler
     }
 
     /**
-     * Get the HtmlParser
-     *
-     * @return HtmlParser
+     * @return HtmlParser Get the HtmlParser instance
      */
     public function getHtmlParser()
     {
@@ -74,9 +77,7 @@ class Crawler
     }
 
     /**
-     * Instantiate the Worker
-     *
-     * @param Worker
+     * @param Worker Set the Worker
      */
     public function setWorker(Worker $worker)
     {
@@ -84,13 +85,69 @@ class Crawler
     }
 
     /**
-     * Get the Worker
-     *
-     * @return Worker
+     * @return Worker Get the Worker instance
      */
     public function getWorker()
     {
         return $this->worker;
+    }
+
+    /**
+     * @param Proxy Set the Proxy
+     */
+    public function setProxy(ProxyInterface $proxy)
+    {
+        $this->proxy = $proxy;
+    }
+
+    /**
+     * @return Proxy Get the Proxy instance
+     */
+    public function getProxy()
+    {
+        return $this->proxy;
+    }
+
+    /**
+     * @return array Set the ignoredFileTypes array
+     */
+    public function setIgnoredFileTypes(array $array = [])
+    {
+        return $this->ignoredFileTypes = $array;
+    }
+
+    public function getIgnoredFileTypes()
+    {
+        return $this->ignoredFileTypes;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | RollingCurl Section
+    |--------------------------------------------------------------------------
+    |
+    |
+    */
+
+    /**
+     * Set the proxy file path and grab them
+     *
+     * @param  string $path
+     * @return void
+     */
+    public function importProxies($path = null)
+    {
+        $this->getProxy()->setProxyPath($path);
+    }
+
+    /**
+     * Add a single URL or an array of URLs
+     *
+     * @param mixed $url
+     */
+    public function add($url)
+    {
+        return $this->getWorker()->addRequest($url);
     }
 
     /**
@@ -99,7 +156,7 @@ class Crawler
      * @param  string $targetUrl
      * @return void
      */
-    public function execute()
+    public function crawl()
     {
         if (empty($this->target)) {
             throw new Exception('You need to set a target either before calling go() or as its paramter.');
@@ -107,26 +164,7 @@ class Crawler
 
         $this->add($this->target);
 
-        $this->getWorker()->crawlUrls();
+        dd($this->getWorker());
     }
 
-    /**
-     * Add a single URL or an array of URLs
-     *
-     * @param string|array $url
-     */
-    public function add($url)
-    {
-        if (is_array($url)) {
-            $this->getWorker()->addRequests($url);
-            return true;
-        }
-
-        if (is_string($url)) {
-            $this->getWorker()->addRequest($url);
-            return true;
-        }
-
-        return false;
-    }
 }

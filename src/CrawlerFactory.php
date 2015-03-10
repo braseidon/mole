@@ -1,6 +1,8 @@
 <?php namespace Braseidon\Scraper;
 
 use Braseidon\Scraper\Parser\HtmlParserFactory;
+use Braseidon\Scraper\Cache\WebCache;
+use Braseidon\Scraper\Http\Proxy;
 
 class CrawlerFactory
 {
@@ -37,6 +39,7 @@ class CrawlerFactory
         $crawler->setThreads($this->getThreads());
         $crawler->setOptions($this->getOptions());
         $crawler->setRequestLimit($this->getRequestLimit());
+        $crawler->setIgnoredFileTypes($this->getIgnoredFiletypes());
 
         return $crawler;
     }
@@ -48,37 +51,14 @@ class CrawlerFactory
      */
     public function getWorker()
     {
-        $worker = new Worker();
+        $worker = new Worker(
+            $this->getWebCache()
+            // $this->config,
+        );
 
         $worker->setOptions($this->getOptions());
 
         return $worker;
-    }
-
-    /**
-     * Create HtmlParserFactory object.
-     *
-     * @return HtmlParserFactory
-     */
-    public function getHtmlParser()
-    {
-        return HtmlParserFactory::create($this->config)->getHtmlParser();
-    }
-
-    /**
-     * Get the request Callback.
-     *
-     * @return string
-     */
-    public function getThreads()
-    {
-        $threads = 2;
-
-        if (isset($this->config['threads'])) {
-            $threads = $this->config['threads'];
-        }
-
-        return $threads;
     }
 
     /**
@@ -101,6 +81,52 @@ class CrawlerFactory
     }
 
     /**
+     * Create HtmlParserFactory object.
+     *
+     * @return HtmlParserFactory
+     */
+    public function getHtmlParser()
+    {
+        return HtmlParserFactory::create($this->config)->getHtmlParser();
+    }
+
+    /**
+     * Get the WebCache object
+     *
+     * @return WebCache
+     */
+    public function getWebCache()
+    {
+        return new WebCache();
+    }
+
+    /**
+     * Get the Proxy object
+     *
+     * @return Proxy
+     */
+    public function getProxy()
+    {
+        return new Proxy($this->config);
+    }
+
+    /**
+     * Get the request Callback.
+     *
+     * @return string
+     */
+    public function getThreads()
+    {
+        $threads = 2;
+
+        if (isset($this->config['threads'])) {
+            $threads = $this->config['threads'];
+        }
+
+        return $threads;
+    }
+
+    /**
      * Get the request limit or set default.
      *
      * @return integer
@@ -116,6 +142,11 @@ class CrawlerFactory
         return $requestLimit;
     }
 
+    /**
+     * Return the file extensions to ignore when crawling
+     *
+     * @return array
+     */
     public function getIgnoredFiletypes()
     {
         $ignoredFiletypes = ['.css', '.doc', '.gif', '.jpeg', '.jpg', '.js', '.pdf', '.png'];

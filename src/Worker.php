@@ -2,10 +2,11 @@
 
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;
+use Braseidon\Scraper\Cache\WebCacheInterface;
+use Braseidon\Scraper\Http\ProxyInterface;
 
 class Worker extends RollingCurl
 {
-
     /**
      * The config array
      *
@@ -15,21 +16,17 @@ class Worker extends RollingCurl
 
     protected $cache;
 
-    protected $proxies;
-
-    public function __construct()
-
     /**
-     * Add multiple requests
+     * Instantiate the Object
      *
-     * @param array  $urls
-     * @param string $method
+     * @param array $config
      */
-    public function addRequests(array $urls)
+    public function __construct(WebCacheInterface $cache)
     {
-        foreach ($urls as $url) {
-            $this->addRequest($url);
-        }
+        $this->cache = $cache;
+
+        // $this->setCallback([$this->htmlParser, 'callback']);
+
     }
 
     /**
@@ -45,9 +42,37 @@ class Worker extends RollingCurl
             return false;
         }
 
-        $this->add($newRequest);
+        $newRequest = new Request($url, $method);
 
-        return true;
+        if ($this->proxies->hasProxies()) {
+            $newRequest->setOptions($this->proxies->setProxy());
+        }
+
+        return $this->add($newRequest);
+
+        return false;
+    }
+
+    public function buildOptions(array $options = [])
+    {
+        if ($this->proxies->hasProxies()) {
+            $options = array_merge($options, $this->proxies->setProxy());
+        }
+
+        $newRequest->setOptions($options);
+    }
+
+    /**
+     * Add multiple requests
+     *
+     * @param array  $urls
+     * @param string $method
+     */
+    public function addRequests(array $urls)
+    {
+        foreach ($urls as $url) {
+            $this->addRequest($url);
+        }
     }
 
     /**
@@ -57,11 +82,15 @@ class Worker extends RollingCurl
      */
     public function checkRequest()
     {
-        if ($this->config['max_requests'] > 0 and $this->numRequests >= $this->config['max_requests']) {
+        if(! isset($this->config['request_limit'])) {
             return false;
         }
 
-        if (! $this->index->checkUrl($url)) {
+        if ($this->config['request_limit'] > 0 and $this->numRequests >= $this->config['request_limit']) {
+            return false;
+        }
+
+        if (! $this->cache->checkUrl($url)) {
             return false;
         }
 
@@ -73,44 +102,27 @@ class Worker extends RollingCurl
      *
      * @return void
      */
-    protected function crawlUrls()
-    {
-        if(empty($this->pendingRequests)) {
-            $this->execute();
-        }
-    }
-
-    /**
-     * Get a new Request's curl options
-     *
-     * @return array
-     */
-    public function getRequestOptions()
-    {
-        return [
-            UserAgent::generate(),
-            $this->proxies->setProxy(),
-        ];
-    }
-
-    /**
-     * Execute RollingCurl if this isn't running
-     *
-     * @return void
-     */
     public function crawlUrls()
     {
-        if (empty($this->pendingRequests)) {
+        dd('called');
+        $this->setCallback([$this, 'testCallback']);
+
+        if(! $this->countPending()) {
             $this->execute();
         }
     }
 
-    protected function finalizeCrawl()
+    public function testCallback()
     {
-        echo 'Requests pending: ' . $this->countPending() . '<br />';
-        echo 'Requests completed: ' . $this->countCompleted() . '<br />';
-        echo 'Requests active: ' . $this->countActive() . '<br />';
-        echo 'Total Emails grabbed: ' . $this->emailParser->count() . '<br />';
-        echo 'Total URLs grabbed: ' . $this->index->count() . '<br />';
+        dd('callback works!');
     }
+
+    // protected function finalizeCrawl()
+    // {
+    //     echo 'Requests pending: ' . $this->countPending() . '<br />';
+    //     echo 'Requests completed: ' . $this->countCompleted() . '<br />';
+    //     echo 'Requests active: ' . $this->countActive() . '<br />';
+    //     echo 'Total Emails grabbed: ' . $this->emailParser->count() . '<br />';
+    //     echo 'Total URLs grabbed: ' . $this->cache->count() . '<br />';
+    // }
 }

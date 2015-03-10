@@ -1,11 +1,26 @@
 <?php namespace Braseidon\Scraper\Http;
 
 use File;
+
 use Exception;
 use InvalidArgumentException;
 
-class Proxy
+class Proxy implements ProxyInterface
 {
+    /**
+     * The config object
+     *
+     * @var array
+     */
+    protected $config = [];
+
+    /**
+     * Path to Proxy file
+     *
+     * @var string
+     */
+    protected $path = '';
+
     /**
      * Array of proxies for scraping
      *
@@ -20,68 +35,14 @@ class Proxy
      */
     protected $proxyCount = 0;
 
-    /**
-     * Instantiate the Obejct
-     *
-     * @param string $path Proxy list
-     */
-    public function __construct($path = '')
+    public function __construct(array $config = [])
     {
-        $this->import($path);
-    }
+        $this->config = $config;
 
-    /**
-     * Import proxies for use by the system
-     *
-     * @param  string|array $proxies
-     * @return array
-     */
-    public function import($path)
-    {
-        $proxies = $this->getFile($path);
-        $proxies = explode(PHP_EOL, $proxies);
-
-        if (count($proxies) > 0) {
-            $newArr = [];
-
-            foreach ($proxies as $proxy) {
-                $proxyArr = explode(':', $proxy);
-
-                if (is_array($proxyArr) and count($proxyArr) >= 2) {
-                    $proxyArr = array_map('trim', $proxyArr);
-                    $proxyArr = array_unique($proxyArr);
-
-                    $newArr[] = [
-                        'ip'    => $proxyArr[0],
-                        'port'    => $proxyArr[1],
-                        'user'    => (! isset($proxyArr[2]) ? false : $proxyArr[2]),
-                        'pass'    => (! isset($proxyArr[3]) ? false : $proxyArr[3]),
-                    ];
-                }
-            }
-
-            $this->proxies = $newArr;
-            $this->proxyCount = count($this->proxies);
-
-            return $this->proxies;
+        if(isset($this->config['proxy_list_path'])) {
+            $this->setProxyPath(array_get($this->config, 'proxy_list_path'));
         }
 
-        throw new Exception('Proxies array either failed or is empty!');
-    }
-
-    /**
-     * Get the proxy list file
-     *
-     * @param  string $path
-     * @return file|bool
-     */
-    private function getFile($path)
-    {
-        if (File::exists($path)) {
-            return File::get($path);
-        }
-
-        throw new InvalidArgumentException('Path to proxy file is invalid.');
     }
 
     /**
@@ -89,7 +50,7 @@ class Proxy
      *
      * @param array $options
      */
-    public function setProxy($options = [])
+    public function getRandomProxy()
     {
         // Grab random proxy
         if (! $proxy = $this->random()) {
@@ -98,8 +59,8 @@ class Proxy
         }
 
         // Set the Curl object's options
-        $options[CURLOPT_PROXY]        = $proxy['ip'];
-        $options[CURLOPT_PROXYPORT]    = $proxy['port'];
+        $options[CURLOPT_PROXY]     = $proxy['ip'];
+        $options[CURLOPT_PROXYPORT] = $proxy['port'];
 
         // Apply user and pass if not null
         if (! empty($proxy['user']) and ! empty($proxy['pass'])) {
@@ -148,4 +109,76 @@ class Proxy
     {
         return count($this->proxies);
     }
+
+    /**
+     * Import proxies for use by the system
+     *
+     * @param  string|array $proxies
+     * @return array
+     */
+    public function setProxyPath($path)
+    {
+        $proxies = $this->getFile($path);
+        $this->proxies = $this->parseProxyFile($proxies);
+        $this->proxyCount = count($this->proxies);
+    }
+
+    /**
+     * Get the proxy list file
+     *
+     * @param  string $path
+     * @return file|bool
+     */
+    protected function getFile($path)
+    {
+        if(empty($path) || $path === '' || ! is_string($path)) {
+            throw new InvalidArgumentException('You need to include a proxy path.');
+        }
+
+        if (File::exists($path)) {
+            return File::get($path);
+        }
+
+        throw new InvalidArgumentException('Proxy list path is incorrect or the file does not exist.');
+    }
+
+    /**
+     * Break up that list of IP's into a usable array
+     *
+     * @return array
+     */
+    protected function parseProxyFile($file)
+    {
+        $proxies = explode(PHP_EOL, $file);
+
+        if (count($proxies) > 0) {
+            $newArr = [];
+
+            foreach ($proxies as $proxy) {
+                $proxyArr = explode(':', $proxy);
+
+                if (is_array($proxyArr) and count($proxyArr) >= 2) {
+                    $newArr[] = $this->mapProxyArgs($proxyArr);
+                }
+            }
+
+            return $newArr;
+        }
+
+        throw new Exception('Proxies array either failed or is empty!');
+    }
+
+    private function mapProxyArgs(array $proxyArr)
+    {
+        $proxyArr = array_map('trim', $proxyArr);
+        $proxyArr = array_unique($proxyArr);
+
+        return [
+            'ip'    => $proxyArr[0],
+            'port'    => $proxyArr[1],
+            'user'    => (! isset($proxyArr[2]) ? false : $proxyArr[2]),
+            'pass'    => (! isset($proxyArr[3]) ? false : $proxyArr[3]),
+        ];
+    }
+
 }
