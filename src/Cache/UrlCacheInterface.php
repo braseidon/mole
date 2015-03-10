@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Scraper\Cache;
+<?php namespace Braseidon\Mole\Cache;
 
 interface CacheUrl {
 

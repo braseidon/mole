@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Scraper\Http;
+<?php namespace Braseidon\Mole\Http;
 
 interface ProxyInterface {
 

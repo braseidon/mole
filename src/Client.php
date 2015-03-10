@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Scraper;
+<?php namespace Braseidon\Mole;
 
 use Exception;
 

@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Scraper\Traits;
+<?php namespace Braseidon\Mole\Traits;
 
 trait CrawlerOptions
 {
@@ -42,28 +42,6 @@ trait CrawlerOptions
     {
         if ($this->config['threads']) {
             return $this->config['threads'];
-        }
-    }
-
-    /**
-     * Set the options
-     *
-     * @param integer $options
-     */
-    public function setOptions($options)
-    {
-        $this->config['options'] = $options;
-    }
-
-    /**
-     * Get the options
-     *
-     * @return integer
-     */
-    public function getOptions()
-    {
-        if ($this->config['options']) {
-            return $this->config['options'];
         }
     }
 

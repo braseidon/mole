@@ -1,7 +1,7 @@
 {
-    "name": "braseidon/scraper",
+    "name": "braseidon/mole",
     "description": "Scraper is a fast and efficient web scraper that targets various forms of data.",
-    "keywords": ["scrape", "rollingcurl", "multi", "curl", "parallel", "requests", "asynchronous", "proxy", "anonymous"],
+    "keywords": ["scraper", "rollingcurl", "multi", "curl", "parallel", "requests", "asynchronous", "proxy", "anonymous"],
     "homepage": "https://github.com/braseidon/scraper",
     "license": "MIT",
     "authors": [
@@ -21,7 +21,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Braseidon\\Scraper\\": "src/"
+            "Braseidon\\Mole\\": "src/"
         }
     },
     "minimum-stability": "dev"

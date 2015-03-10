@@ -1,17 +1,11 @@
-<?php namespace Braseidon\Scraper;
+<?php namespace Braseidon\Mole;
 
-use Braseidon\Scraper\Parser\HtmlParserFactory;
-use Braseidon\Scraper\Cache\WebCache;
-use Braseidon\Scraper\Http\Proxy;
+use Braseidon\Mole\Parser\ParserFactory;
+use Braseidon\Mole\Traits\UsesConfig;
 
 class CrawlerFactory
 {
-    /**
-     * Configuration.
-     *
-     * @var array
-     */
-    protected $config;
+    use UsesConfig;
 
     /**
      * Create CrawlerFactory object.
@@ -20,8 +14,16 @@ class CrawlerFactory
      */
     public function __construct(array $config = [])
     {
-        $this->config = $config;
+        $this->mergeOptions($config);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Getters - Objects
+    |--------------------------------------------------------------------------
+    |
+    |
+    */
 
     /**
      * Create Crawler object.
@@ -31,13 +33,11 @@ class CrawlerFactory
     public function getCrawler()
     {
         $crawler = new Crawler(
-            $this->getHtmlParser(),
-            $this->getWorker(),
-            $this->getProxy()
+            $this->getWorker()
         );
 
+        $crawler->mergeOptions($this->getOptions());
         $crawler->setThreads($this->getThreads());
-        $crawler->setOptions($this->getOptions());
         $crawler->setRequestLimit($this->getRequestLimit());
         $crawler->setIgnoredFileTypes($this->getIgnoredFiletypes());
 
@@ -52,42 +52,25 @@ class CrawlerFactory
     public function getWorker()
     {
         $worker = new Worker(
-            $this->getWebCache()
-            // $this->config,
+            $this->getParser(),
+            $this->getOptions()
         );
 
-        $worker->setOptions($this->getOptions());
+        if ($this->hasOption('proxy_list_path')) {
+            $worker->importProxies($this->getOption('proxy_list_path'));
+        }
 
         return $worker;
     }
 
     /**
-     * Default Curl options.
+     * Create ParserFactory object.
      *
-     * @return array
+     * @return ParserFactory
      */
-    public function getOptions()
+    public function getParser()
     {
-        return [
-            CURLOPT_SSL_VERIFYHOST    => 2,
-            CURLOPT_SSL_VERIFYPEER    => 1,
-            CURLOPT_RETURNTRANSFER    => true,
-            CURLOPT_CONNECTTIMEOUT    => 10,
-            CURLOPT_TIMEOUT            => 20,
-            CURLOPT_FOLLOWLOCATION    => true,
-            CURLOPT_MAXREDIRS        => 5,
-            CURLOPT_HEADER            => 0,
-        ];
-    }
-
-    /**
-     * Create HtmlParserFactory object.
-     *
-     * @return HtmlParserFactory
-     */
-    public function getHtmlParser()
-    {
-        return HtmlParserFactory::create($this->config)->getHtmlParser();
+        return ParserFactory::create($this->getOptions());
     }
 
     /**
@@ -100,15 +83,13 @@ class CrawlerFactory
         return new WebCache();
     }
 
-    /**
-     * Get the Proxy object
-     *
-     * @return Proxy
-     */
-    public function getProxy()
-    {
-        return new Proxy($this->config);
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | Getters - Options
+    |--------------------------------------------------------------------------
+    |
+    |
+    */
 
     /**
      * Get the request Callback.
@@ -119,11 +100,11 @@ class CrawlerFactory
     {
         $threads = 2;
 
-        if (isset($this->config['threads'])) {
-            $threads = $this->config['threads'];
+        if (! $this->hasOption('threads')) {
+            $this->setOption('threads', $threads);
         }
 
-        return $threads;
+        return $this->getOption('threads');
     }
 
     /**
@@ -135,11 +116,11 @@ class CrawlerFactory
     {
         $requestLimit = 2;
 
-        if (isset($this->config['request_limit'])) {
-            $requestLimit = $this->config['request_limit'];
+        if (! $this->hasOption('request_limit')) {
+            $this->setOption('request_limit', $requestLimit);
         }
 
-        return $requestLimit;
+        return $this->getOption('request_limit');
     }
 
     /**
@@ -151,11 +132,11 @@ class CrawlerFactory
     {
         $ignoredFiletypes = ['.css', '.doc', '.gif', '.jpeg', '.jpg', '.js', '.pdf', '.png'];
 
-        if (isset($this->config['ignored_filetypes'])) {
-            $scrapeLimit = $this->config['ignored_filetypes'];
+        if (! $this->hasOption('ignored_filetypes')) {
+            $this->setOption('ignored_filetypes', $ignoredFiletypes);
         }
 
-        return $ignoredFiletypes;
+        return $this->getOption('ignored_filetypes');
     }
 
     /**

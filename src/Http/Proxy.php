@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Scraper\Http;
+<?php namespace Braseidon\Mole\Http;
 
 use File;
 
@@ -39,30 +39,27 @@ class Proxy implements ProxyInterface
     {
         $this->config = $config;
 
-        if(isset($this->config['proxy_list_path'])) {
+        if (isset($this->config['proxy_list_path'])) {
             $this->setProxyPath(array_get($this->config, 'proxy_list_path'));
         }
-
     }
 
     /**
      * Sets the Curl object's proxy options using a random proxy
      *
-     * @param array $options
+     * @param  array $options
+     * @return array
      */
-    public function getRandomProxy()
+    public function getRandomProxy($options = [])
     {
-        // Grab random proxy
         if (! $proxy = $this->random()) {
             return $options;
-            // throw new Exception('No proxy was returned!');
+            throw new Exception('No proxy was returned!');
         }
 
-        // Set the Curl object's options
         $options[CURLOPT_PROXY]     = $proxy['ip'];
         $options[CURLOPT_PROXYPORT] = $proxy['port'];
 
-        // Apply user and pass if not null
         if (! empty($proxy['user']) and ! empty($proxy['pass'])) {
             $options[CURLOPT_PROXYUSERPWD] = $proxy['user'] . ':' . $proxy['pass'];
         }
@@ -95,7 +92,7 @@ class Proxy implements ProxyInterface
             return false;
         }
 
-        $rand = mt_rand(0, $this->proxyCount);
+        $rand = mt_rand(0, ($this->proxyCount - 1));
 
         return $this->proxies[$rand];
     }
@@ -131,7 +128,7 @@ class Proxy implements ProxyInterface
      */
     protected function getFile($path)
     {
-        if(empty($path) || $path === '' || ! is_string($path)) {
+        if (empty($path) || $path === '' || ! is_string($path)) {
             throw new InvalidArgumentException('You need to include a proxy path.');
         }
 
@@ -168,6 +165,12 @@ class Proxy implements ProxyInterface
         throw new Exception('Proxies array either failed or is empty!');
     }
 
+    /**
+     * Maps a proxy's parts
+     *
+     * @param  array  $proxyArr
+     * @return array
+     */
     private function mapProxyArgs(array $proxyArr)
     {
         $proxyArr = array_map('trim', $proxyArr);
@@ -175,10 +178,9 @@ class Proxy implements ProxyInterface
 
         return [
             'ip'    => $proxyArr[0],
-            'port'    => $proxyArr[1],
-            'user'    => (! isset($proxyArr[2]) ? false : $proxyArr[2]),
-            'pass'    => (! isset($proxyArr[3]) ? false : $proxyArr[3]),
+            'port'  => $proxyArr[1],
+            'user'  => (! isset($proxyArr[2]) ? false : $proxyArr[2]),
+            'pass'  => (! isset($proxyArr[3]) ? false : $proxyArr[3]),
         ];
     }
-
 }

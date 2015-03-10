@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Scraper\Parser\Types;
+<?php namespace Braseidon\Mole\Parser\Types;
 
 interface ParserTypeInterface
 {

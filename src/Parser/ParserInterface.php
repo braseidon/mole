@@ -1,4 +1,7 @@
-<?php namespace Braseidon\Scraper\Parser;
+<?php namespace Braseidon\Mole\Parser;
+
+use RollingCurl\Request;
+use RollingCurl\RollingCurl;
 
 interface ParserInterface
 {
@@ -10,11 +13,8 @@ interface ParserInterface
      */
     public function setPattern($pattern);
 
-    /**
-     * Finds matches in the HTML
-     *
-     * @param  string $html
-     * @return bool
-     */
-    public function findMatches($html);
+
+    public function parseMatches($html);
+
+    public function parseMatch($html);
 }

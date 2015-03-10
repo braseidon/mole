@@ -1,28 +1,11 @@
-<?php namespace Braseidon\Scraper\Parser;
+<?php namespace Braseidon\Mole\Parser;
+
+use Braseidon\Mole\Cache\WebCache;
+use Braseidon\Mole\Traits\UsesConfig;
 
 class ParserFactory
 {
-
-    /**
-     * Configuration
-     *
-     * @var array
-     */
-    protected $config;
-
-    /**
-     * The parser for links
-     *
-     * @var LinkParser
-     */
-    protected $linkParser;
-
-    /**
-     * The parser for emails
-     *
-     * @var EmailParser
-     */
-    protected $emailParser;
+    use UsesConfig;
 
     /**
      * Create ParserFactory
@@ -31,16 +14,36 @@ class ParserFactory
      */
     public function __construct(array $config = [])
     {
-        $this->config = $config;
+        $this->mergeOptions($config);
     }
 
     /**
-     * Create ParserFactory instance
+     * Get the Parser object
      *
-     * @param  array $config Configuration parameters.
-     * @return Parser   The configured Parser.
+     * @return Parser
      */
-    public static function create(array $config = [])
+    protected function getParser()
+    {
+        return new Parser($this->getCache());
+    }
+
+    /**
+     * Get the Cache object
+     *
+     * @return Cache
+     */
+    protected function getCache()
+    {
+        return new WebCache();
+    }
+
+    /**
+     * Create a Parser instance
+     *
+     * @param  array $config
+     * @return Parser
+     */
+    public static function create($config = [])
     {
         return (new self($config))->getParser();
     }

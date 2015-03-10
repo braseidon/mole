@@ -1,5 +1,7 @@
 # Project
 /.resource
+/src/Parser/Unused
 
 # Composer
 /vendor
+composer.lock

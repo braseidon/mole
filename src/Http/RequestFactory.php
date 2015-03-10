@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Scraper\Http\RequestFactory;
+<?php namespace Braseidon\Mole\Http\RequestFactory;
 
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;

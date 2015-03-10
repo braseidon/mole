@@ -1,13 +1,10 @@
-<?php namespace Braseidon\Scraper;
+<?php namespace Braseidon\Mole;
+
+use Braseidon\Mole\Traits\UsesConfig;
 
 class ClientFactory
 {
-    /**
-     * Configuration.
-     *
-     * @var array
-     */
-    protected $config;
+    use UsesConfig;
 
     /**
      * Create ClientFactory object.
@@ -16,7 +13,7 @@ class ClientFactory
      */
     public function __construct(array $config = [])
     {
-        $this->config = $config;
+        $this->mergeOptions($config);
     }
 
     /**
@@ -30,7 +27,7 @@ class ClientFactory
             $this->getCrawler()
         );
 
-        $client->setCrawler($this->getCrawler());
+        // $client->setCrawler($this->getCrawler());
 
         return $client;
     }

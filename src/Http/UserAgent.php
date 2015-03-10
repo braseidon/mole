@@ -1,12 +1,12 @@
-<?php namespace Braseidon\Scraper\Http;
+<?php namespace Braseidon\Mole\Http;
 
 class UserAgent
 {
-
     /**
      * Function to generate a random user agent
      *
-     * @return string
+     * @param  array $options
+     * @return array
      */
     public static function generate($options = [])
     {
@@ -14,8 +14,9 @@ class UserAgent
         $sysNtv = [];
         $agents = [];
 
-        $randOne = mt_rand(0, 9);
-        $randTwo = mt_rand(0, 255);
+        $randOne   = mt_rand(0, 9);
+        $randTwo   = mt_rand(0, 255);
+        $randThree = mt_rand(0, 9);
 
         $date = date("YmdHis").$randTwo;
 
@@ -42,16 +43,16 @@ class UserAgent
         $sysNtv[9] = "compatible; MSIE 11.0; Windows NT 6.2; WOW64";
 
         // User agents that are highly randomized
-        $agents[0] = "Opera/9.80 (" . $sysNtv[$randOne] . ";" . $netClr[$randOne] . ") Presto/2.10." . mt_rand(0, 999) . " Version/11.62";
-        $agents[1] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randOne] . ") Gecko/" . $date . " Firefox/23.0." . $randOne;
-        $agents[2] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randOne] . ") AppleWebKit/535.2 (KHTML, like Gecko) Chrome/20.0." . mt_rand(0, 9999) . "." . mt_rand(0, 99) . " Safari/535.2";
-        $agents[3] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randOne] . ")";
+        $agents[0] = "Opera/9.80 (" . $sysNtv[$randOne] . ";" . $netClr[$randThree] . ") Presto/2.10." . mt_rand(0, 999) . " Version/11.62";
+        $agents[1] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randThree] . ") Gecko/" . $date . " Firefox/23.0." . $randOne;
+        $agents[2] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randThree] . ") AppleWebKit/535.2 (KHTML, like Gecko) Chrome/20.0." . mt_rand(0, 9999) . "." . mt_rand(0, 99) . " Safari/535.2";
+        $agents[3] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randThree] . ")";
         $agents[4] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ") AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0." . mt_rand(0, 9999) . "." . mt_rand(0, 99) . " Safari/537.36)";
-        $agents[5] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randOne] . ")";
+        $agents[5] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randThree] . ")";
         $agents[6] = "Opera/9.80 (" . $sysNtv[$randOne] . ") Presto/2.9." . $randTwo." Version/12.50";
-        $agents[7] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randOne] . ")";
+        $agents[7] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randThree] . ")";
         $agents[8] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ") Gecko/" . $date." Firefox/17.0";
-        $agents[9] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randOne] . ")";
+        $agents[9] = "Mozilla/5.0 (" . $sysNtv[$randOne] . ";" . $netClr[$randThree] . ")";
 
         $options[CURLOPT_USERAGENT] = $agents[$randOne];
 

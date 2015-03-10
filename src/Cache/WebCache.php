@@ -1,21 +1,39 @@
-<?php namespace Braseidon\Scraper\Cache;
+<?php namespace Braseidon\Mole\Cache;
 
 class WebCache implements WebCacheInterface
 {
 
     /**
-     * Handles checking for first page requests
-     *
-     * @var array
+     * @var string The type of cache this instance is
+     */
+    public $cacheType = '';
+
+    /**
+     * @var array Handles checking for first page requests
      */
     protected $cache = [];
 
     /**
-     * The max items to have in a batch
-     *
-     * @var integer
+     * @var integer The max items to have in a batch
      */
     protected $max = 1000;
+
+    protected $batchCount = 0;
+
+    /**
+     * Adds a URL if it isn't cached
+     *
+     * @param string $url
+     */
+    public function add($url)
+    {
+        $url = $this->clean($url);
+
+        if (! $this->check($url)) {
+            $this->cache[$url] = true;
+            $this->batchCount++;
+        }
+    }
 
     /**
      * Checks if a URL is cached
@@ -26,21 +44,11 @@ class WebCache implements WebCacheInterface
     {
         $url = $this->clean($url);
 
-        if (isset($this->cacheHistory[$url])) {
+        if (isset($this->cache[$url])) {
             return true;
         }
 
         return false;
-    }
-
-    /**
-     * Adds a URL if it isn't cached
-     *
-     * @param string $url
-     */
-    public function add($url)
-    {
-
     }
 
     /**
@@ -61,7 +69,7 @@ class WebCache implements WebCacheInterface
      */
     public function count()
     {
-        return count($this->cacheHistory);
+        return count($this->cache);
     }
 
     /**
@@ -71,6 +79,6 @@ class WebCache implements WebCacheInterface
      */
     public function all()
     {
-        return $this->cacheHistory;
+        return $this->cache;
     }
 }
