@@ -14,7 +14,7 @@ interface ParserInterface
     public function setPattern($pattern);
 
 
-    public function parseMatches($html);
+    public function pregMatch($pattern, $html);
 
-    public function parseMatch($html);
+    public function filterMatches($html);
 }

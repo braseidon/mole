@@ -1,12 +1,13 @@
 <?php namespace Braseidon\Mole\Parser;
 
-use Braseidon\Mole\Cache\WebCacheInterface;
+use Braseidon\Mole\Cache\Http\WebCacheInterface;
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;
+use Braseidon\Mole\Traits\UsesConfig;
 
 class Parser implements ParserInterface
 {
-    protected $config;
+    use UsesConfig;
 
     /**
      * @var WebCache $cache The WebCache object
@@ -21,21 +22,21 @@ class Parser implements ParserInterface
     /**
      * @var array $blockArr Array of blocked strings
      */
-    protected $blockedArr = [];
+    protected $blockedFileTypes = ['.css', '.doc', '.gif', '.jpeg', '.jpg', '.js', '.pdf', '.png'];
 
     /**
      * @var string $domain The domain we're crawling
      */
-    protected $domain;
+    protected $domain = [];
 
     /**
      * Instantiate the Parser object
      *
      * @param WebCacheInterface $cache
      */
-    public function __construct(WebCacheInterface $cache)
+    public function __construct(array $config = [])
     {
-        $this->cache = $cache;
+        $this->mergeOptions($config);
     }
 
     /**
@@ -52,6 +53,30 @@ class Parser implements ParserInterface
     public function getCache()
     {
         return $this->cache;
+    }
+
+    /**
+     * @param array $config Set the config
+     */
+    public function setConfig($config = [])
+    {
+        $this->config = $config;
+    }
+
+    /**
+     * Get a config option
+     *
+     * @param  string $key
+     * @param  mixed $default
+     * @return mixed
+     */
+    public function getConfig($key, $default = null)
+    {
+        if (isset($this->config[$key])) {
+            return $this->config[$key];
+        }
+
+        return $default;
     }
 
     /**
@@ -72,7 +97,11 @@ class Parser implements ParserInterface
     public function setDomain($url)
     {
         if ($parts = parse_url($url)) {
-            $this->domain = $parts['host'];
+            $this->domain = $parts;
+            $this->domain['scheme']         = $this->domain['scheme'] . '://';
+            $this->domain['domain_plain']   = str_ireplace('www.', '', $parts['host']);
+            $this->domain['domain_full']    = $this->domain['scheme'] . $parts['host'];
+
             return $this->domain;
         }
 
@@ -93,18 +122,19 @@ class Parser implements ParserInterface
      * @param  string $link
      * @return bool
      */
-    protected function checkBlockedStrings($link)
+    protected function hasIgnoredStrings($link)
     {
-        if(count($this->blockedArr) == 0)
-            return true;
-
-        foreach($this->blockedArr as $blocked)
-        {
-            if(strpos($link, $blocked) !== false)
-                return false;
+        if (! $this->getConfig('ignore_file_types', false)) {
+            return false;
         }
 
-        return true;
+        foreach ($this->getConfig('ignore_file_types') as $blocked) {
+            if (strpos($link, $blocked) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /*
@@ -122,108 +152,85 @@ class Parser implements ParserInterface
      * @param  RollingCurl $rolling_curl The current RollingCurl object
      * @return void
      */
-    public function callback(Request $request, RollingCurl $rollingCurl)
+    public function parseLinks(Request $request, RollingCurl $rollingCurl)
     {
-        // dd($request->getResponseInfo());
         $url = $request->getUrl();
         $html = $request->getResponseText();
-        $httpCode = array_get($request->getResponseInfo(), 'http_code');
 
-        // Set the domain we're crawling
-        $this->setDomain($url);
-
-        // Add URL to index (or update count)
-        $this->cache->add($url);
-
-        if ($httpCode >= 200 && $httpCode < 400 && ! empty($html)) {
-            // Start arrays
-            $emailMatches = [];
-
-            // Parse - Links
-            $this->parseMatches($html);
-
-            // Parse - Emails
-            // $this->parseEmails($html);
-
-            // Garbage collect
-            unset($html);
-
-            // Crawl any newly found URLs
-            $this->crawlUrls();
+        // Set the domain we're crawling, if it doesn't then work return false
+        if (! $this->setDomain($request->getUrl())) {
+            return false;
         }
+
+        echo 'Crawled: ' . $url . '<br />';
+
+        $pattern = '/href="([^#"]*)"/i';
+        $newLinks = $this->pregMatch($pattern, $html);
+
+        $rollingCurl->addRequests($newLinks);
     }
 
-    public function parseMatches($html)
+    /**
+     * Use regex to find matches
+     *
+     * @param  string $html
+     * @return mixed
+     */
+    public function pregMatch($pattern, $html)
     {
         // Parse - URL's
         $savedMatches = [];
-        $pattern = '/href="([^#"]*)"/i';
 
         if (preg_match_all($pattern, $html, $matches, PREG_PATTERN_ORDER)) {
-
             $matches = array_unique($matches[1]);
 
-            dd($matches);
-
             foreach ($matches as $k => $link) {
-                if (! $link = $this->parseMatch($link)) {
+                if (! $link = $this->filterMatches($link)) {
                     continue;
                 }
                 $savedMatches[] = $link;
             }
 
-            dd($savedMatches);
-
             unset($matches, $html);
         }
+        // dd($savedMatches);
+        return $savedMatches;
     }
 
     /**
-     * Sends a link through various checks to add it to the request queue
+     * Check each link to see if its fit for crawling
      *
      * @param  string $link
      * @return string|bool
      */
-    public function parseMatch($link)
+    public function filterMatches($link)
     {
-        $link = trim($link);
+        $link = trim(urldecode($link));
 
         if (strlen($link) === 0) {
             $link = '/';
         }
 
         // Check blocked strings
-        if ($this->checkBlockedStrings($link)) {
+        if ($this->hasIgnoredStrings($link)) {
             return false;
         }
 
         // Don't allow more than maxDepth forward slashes in the URL
-        if ($this->maxDepth > 0 && strpos($link, 'http') === false && substr_count($link, '/') > $this->maxDepth) {
+        if ($this->getConfig('max_depth', 0) > 0 && strpos($link, 'http') === false && substr_count($link, '/') > $this->getConfig('max_depth', 0)) {
             return false;
         }
-
-        // Check for a relative path starting with a forward slash
-        if (strpos($link, 'http') === false && strpos($link, '/') === 0) {
-            // Prefix the full domain
-            $link = $this->domain . $link;
-        }
-        // Check if HTTP and WWW are in the link
-        elseif (strpos($link, 'http') === false && strpos($link, '/') === false) {
+        if (strpos($link, 'http') === false && strpos($link, '/') === 0) {              // Check for a relative path starting with a forward slash
+            $link = $this->domain['domain_full'] . $link;                               // Prefix the full domain
+        } elseif (strpos($link, 'http') === false && strpos($link, '/') === false) {    // Check for a same directory reference
             if (strpos($link, 'www.') !== false) {
-                return false;
+                continue;
             }
-
-            $link = $this->domain . '/' . $link;
-        }
-        // Dont index email addresses
-        elseif (strpos($link, 'mailto:') !== false) {
-            // Add email to parser's matches array
+            $link = $this->domain['domain_full'] . '/' . $link;
+        } elseif (strpos($link, 'mailto:') !== false) {                                 // Dont index email addresses
             // $this->parser->addMatch(str_replace('mailto:', '', $link));
-
             return false;
-        }
-        // Skip link if it isnt on the same domain
-        elseif (strpos($link, $this->domain) === false) {
+        } elseif (strpos($link, $this->domain['domain_plain']) === false) {               // Skip link if it isnt on the same domain
             return false;
         }
 

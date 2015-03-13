@@ -1,27 +1,20 @@
-<?php namespace Braseidon\Mole\Cache;
+<?php namespace Braseidon\Mole\Api;
 
-class WebCache implements WebCacheInterface
+class Index implements IndexInterface
 {
 
     /**
-     * @var string The type of cache this instance is
+     * @var string The type of index this instance is
      */
-    public $cacheType = '';
+    public $indexType = '';
 
     /**
      * @var array Handles checking for first page requests
      */
-    protected $cache = [];
+    protected $index = [];
 
     /**
-     * @var integer The max items to have in a batch
-     */
-    protected $max = 1000;
-
-    protected $batchCount = 0;
-
-    /**
-     * Adds a URL if it isn't cached
+     * Adds a URL if it isn't indexd
      *
      * @param string $url
      */
@@ -30,21 +23,24 @@ class WebCache implements WebCacheInterface
         $url = $this->clean($url);
 
         if (! $this->check($url)) {
-            $this->cache[$url] = true;
-            $this->batchCount++;
+            $this->index[$url] = true;
         }
     }
 
     /**
-     * Checks if a URL is cached
+     * Checks if a URL is indexd
      *
      * @param string $url
      */
     public function check($url)
     {
+        if (empty($url)) {
+            return false;
+        }
+
         $url = $this->clean($url);
 
-        if (isset($this->cache[$url])) {
+        if (isset($this->index[$url])) {
             return true;
         }
 
@@ -52,12 +48,12 @@ class WebCache implements WebCacheInterface
     }
 
     /**
-     * Clean the URL for consistent cache checking
+     * Clean the URL for consistent index checking
      *
      * @param  string $url
      * @return string
      */
-    private function clean($url)
+    public function clean($url)
     {
         return str_ireplace(['http://', 'https://', 'www.'], '', rtrim($url, '/'));
     }
@@ -69,7 +65,7 @@ class WebCache implements WebCacheInterface
      */
     public function count()
     {
-        return count($this->cache);
+        return count($this->index);
     }
 
     /**
@@ -79,6 +75,6 @@ class WebCache implements WebCacheInterface
      */
     public function all()
     {
-        return $this->cache;
+        return $this->index;
     }
 }

@@ -18,7 +18,7 @@ trait UsesConfig
      */
     public function getOption($key, $default = null)
     {
-        if (isset($this->config[$key])) {
+        if (! empty($this->config[$key])) {
             return $this->config[$key];
         }
 
@@ -30,7 +30,7 @@ trait UsesConfig
      *
      * @return array
      */
-    public function getOptions()
+    public function getAllOptions()
     {
         return $this->config;
     }
@@ -44,17 +44,21 @@ trait UsesConfig
     public function setOption($key, $value)
     {
         $this->config[$key] = $value;
+
+        return $this->config[$key];
     }
 
     /**
      * Merge options
      *
-     * @param  array $options
+     * @param  array $config
      * @return array
      */
-    public function mergeOptions($options = [])
+    public function mergeOptions($config = [])
     {
-        $this->config = array_merge($this->config, $options);
+        $this->config = array_merge($this->config, $config);
+
+        return $this->config;
     }
 
     /**

@@ -1,6 +1,6 @@
-<?php namespace Braseidon\Mole;
+<?php namespace Braseidon\Mole\Api;
 
-class Index
+class UrlCache implements UrlCacheInterface
 {
 
     /**
@@ -29,7 +29,7 @@ class Index
      *
      * @param string $url
      */
-    public function addUrl($url)
+    public function add($url)
     {
         $url = $this->clean($url);
 
@@ -46,7 +46,7 @@ class Index
      *
      * @param string $url
      */
-    public function checkUrl($url)
+    public function check($url)
     {
         $url = $this->clean($url);
 
@@ -73,7 +73,7 @@ class Index
      *
      * @return array
      */
-    public function getUrls()
+    public function all()
     {
         return $this->cacheHistory;
     }

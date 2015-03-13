@@ -1,6 +1,8 @@
 <?php namespace Braseidon\Mole;
 
-use Braseidon\Mole\Parser\ParserFactory;
+use Braseidon\Mole\Api\Index;
+use Braseidon\Mole\Http\Proxy;
+use Braseidon\Mole\Parser\Parser;
 use Braseidon\Mole\Traits\UsesConfig;
 
 class CrawlerFactory
@@ -33,54 +35,46 @@ class CrawlerFactory
     public function getCrawler()
     {
         $crawler = new Crawler(
-            $this->getWorker()
+            $this->getAllOptions()
         );
 
-        $crawler->mergeOptions($this->getOptions());
-        $crawler->setThreads($this->getThreads());
-        $crawler->setRequestLimit($this->getRequestLimit());
-        $crawler->setIgnoredFileTypes($this->getIgnoredFiletypes());
+        $crawler->setIndex($this->getIndex());
+        $crawler->setParser($this->getParser());
+        $crawler->setProxy($this->getProxy());
 
         return $crawler;
     }
 
     /**
-     * Create Worker object.
-     *
-     * @return Worker
+     * @return Index The Index object
      */
-    public function getWorker()
+    public function getIndex()
     {
-        $worker = new Worker(
-            $this->getParser(),
-            $this->getOptions()
-        );
-
-        if ($this->hasOption('proxy_list_path')) {
-            $worker->importProxies($this->getOption('proxy_list_path'));
-        }
-
-        return $worker;
+        return new Index();
     }
 
     /**
-     * Create ParserFactory object.
-     *
-     * @return ParserFactory
+     * @return Parser The Parser object
      */
     public function getParser()
     {
-        return ParserFactory::create($this->getOptions());
+        return new Parser($this->getAllOptions());
     }
 
     /**
-     * Get the WebCache object
-     *
-     * @return WebCache
+     * @return Proxy The Proxy object
      */
-    public function getWebCache()
+    public function getProxy()
     {
-        return new WebCache();
+        return new Proxy($this->getOption('proxy_list_path'));
+    }
+
+    /**
+     * @return Cache The Cache object
+     */
+    public function getCache()
+    {
+        return new Cache();
     }
 
     /*
@@ -91,53 +85,7 @@ class CrawlerFactory
     |
     */
 
-    /**
-     * Get the request Callback.
-     *
-     * @return string
-     */
-    public function getThreads()
-    {
-        $threads = 2;
 
-        if (! $this->hasOption('threads')) {
-            $this->setOption('threads', $threads);
-        }
-
-        return $this->getOption('threads');
-    }
-
-    /**
-     * Get the request limit or set default.
-     *
-     * @return integer
-     */
-    public function getRequestLimit()
-    {
-        $requestLimit = 2;
-
-        if (! $this->hasOption('request_limit')) {
-            $this->setOption('request_limit', $requestLimit);
-        }
-
-        return $this->getOption('request_limit');
-    }
-
-    /**
-     * Return the file extensions to ignore when crawling
-     *
-     * @return array
-     */
-    public function getIgnoredFiletypes()
-    {
-        $ignoredFiletypes = ['.css', '.doc', '.gif', '.jpeg', '.jpg', '.js', '.pdf', '.png'];
-
-        if (! $this->hasOption('ignored_filetypes')) {
-            $this->setOption('ignored_filetypes', $ignoredFiletypes);
-        }
-
-        return $this->getOption('ignored_filetypes');
-    }
 
     /**
      * Create Crawler object.

@@ -5,7 +5,7 @@ use File;
 use Exception;
 use InvalidArgumentException;
 
-class Proxy implements ProxyInterface
+class Proxy
 {
     /**
      * The config object
@@ -35,12 +35,15 @@ class Proxy implements ProxyInterface
      */
     protected $proxyCount = 0;
 
-    public function __construct(array $config = [])
+    /**
+     * Instantiate the object
+     *
+     * @param string $path
+     */
+    public function __construct($path = null)
     {
-        $this->config = $config;
-
-        if (isset($this->config['proxy_list_path'])) {
-            $this->setProxyPath(array_get($this->config, 'proxy_list_path'));
+        if ($path !== null) {
+            $this->import($path);
         }
     }
 
@@ -113,7 +116,7 @@ class Proxy implements ProxyInterface
      * @param  string|array $proxies
      * @return array
      */
-    public function setProxyPath($path)
+    public function import($path)
     {
         $proxies = $this->getFile($path);
         $this->proxies = $this->parseProxyFile($proxies);

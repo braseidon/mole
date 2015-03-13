@@ -1,5 +1,6 @@
 <?php namespace Braseidon\Mole;
 
+use Braseidon\Mole\Cache\WebCacheInterface;
 use Braseidon\Mole\Http\Proxy;
 use Braseidon\Mole\Http\UserAgent;
 use Braseidon\Mole\Parser\ParserInterface;
@@ -27,6 +28,11 @@ class Worker extends RollingCurl
     protected $parser;
 
     /**
+     * @var WebCache $cache The HTML cache
+     */
+    protected $cache;
+
+    /**
      * @var integer $numRequests The number of requests performed
      */
     protected $numRequests = 0;
@@ -50,13 +56,14 @@ class Worker extends RollingCurl
      *
      * @param WebCacheInterface $cache
      */
-    public function __construct(ParserInterface $parser, array $config = [])
+    public function __construct(ParserInterface $parser, WebCacheInterface $cache, array $config = [])
     {
         $this->setParser($parser);
+        $this->setWebCache($cache);
         $this->mergeConfig($config);
         $this->proxy = $this->getProxy();
 
-        $this->setup();
+        $this->setupWorker();
     }
 
     /**
@@ -76,6 +83,22 @@ class Worker extends RollingCurl
     }
 
     /**
+     * @param WebCache Instantiate the WebCache
+     */
+    public function setWebCache(WebCacheInterface $cache)
+    {
+        $this->cache = $cache;
+    }
+
+    /**
+     * @return WebCache Get the WebCache instance
+     */
+    public function getWebCache()
+    {
+        return $this->cache;
+    }
+
+    /**
      * Create a new request and add it to the queue
      *
      * @param string $url
@@ -89,32 +112,11 @@ class Worker extends RollingCurl
         }
 
         $newRequest = new Request($url);
-
         $newRequest->setOptions($this->buildOptions());
 
+        // $this->getWebCache()->add($url);
         $this->add($newRequest);
-    }
-
-    /**
-     * Check to see if we're breaking limits
-     *
-     * @return bool
-     */
-    public function checkRequest($url)
-    {
-        if (! $this->hasConfig('request_limit')) {
-            throw new InvalidArgumentException('"request_limit" must be set.');
-        }
-
-        if ($this->getConfig('request_limit') > 0 and $this->numRequests >= $this->getConfig('request_limit')) {
-            return false;
-        }
-
-        // if ($this->cache->check($url)) {
-        //     return false;
-        // }
-
-        return true;
+        $this->numRequests++;
     }
 
     /**
@@ -131,13 +133,31 @@ class Worker extends RollingCurl
     }
 
     /**
+     * Check to see if we're breaking limits
+     *
+     * @return bool
+     */
+    public function checkRequest($url)
+    {
+        if ($this->getConfig('request_limit') > 0 and $this->numRequests >= $this->getConfig('request_limit')) {
+            return false;
+        }
+
+        if ($this->getWebCache()->check($url)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Execute RollingCurl if this isn't running
      *
      * @return void
      */
     public function crawlUrls()
     {
-        if (! $this->countCompleted()) {
+        if (! $this->countActive()) {
             $this->execute();
         }
     }
@@ -151,7 +171,30 @@ class Worker extends RollingCurl
      */
     public function theCallback(Request $request, RollingCurl $rollingCurl)
     {
-        $this->getParser()->callback($request, $rollingCurl);
+        // dd($request->getResponseInfo());
+        $url = $request->getUrl();
+        $html = $request->getResponseText();
+        $httpCode = array_get($request->getResponseInfo(), 'http_code');
+
+        // Add URL to index (or update count)
+        $this->getWebCache()->add($url);
+
+        if ($httpCode >= 200 && $httpCode < 400 && ! empty($html)) {
+            $matches = [];
+
+            // Parse - Links
+            $this->getParser()->parseLinks($request, $rollingCurl);
+
+            // Parse - Emails
+            // $this->parseEmails($html);
+
+            // Garbage collect
+            unset($html);
+        }
+
+        $this->crawlUrls();
+        // dd($this->getWebCache()->all());
+        // return $newLinks;
     }
 
     /*
@@ -167,12 +210,14 @@ class Worker extends RollingCurl
      *
      * @return void
      */
-    private function setup()
+    private function setupWorker()
     {
         $this->setCallback([$this, 'theCallback']);
 
-        if ($this->hasConfig('threads')) {
-            $this->setSimultaneousLimit($this->getConfig('threads', 5));
+        $this->setSimultaneousLimit($this->getConfig('threads', 5));
+
+        if (! $this->hasConfig('request_limit')) {
+            throw new InvalidArgumentException('"request_limit" must be set.');
         }
     }
     /**
@@ -285,6 +330,13 @@ class Worker extends RollingCurl
     //     echo 'Requests completed: ' . $this->countCompleted() . '<br />';
     //     echo 'Requests active: ' . $this->countActive() . '<br />';
     //     echo 'Total Emails grabbed: ' . $this->emailParser->count() . '<br />';
-    //     echo 'Total URLs grabbed: ' . $this->cache->count() . '<br />';
+    //     echo 'Total URLs grabbed: ' . $this->getWebCache()->count() . '<br />';
     // }
+
+    /**
+     * @return void
+     */
+    public function __destruct() {
+        unset($this->config, $this->proxy, $this->parser, $this->options);
+    }
 }
