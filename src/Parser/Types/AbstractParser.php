@@ -4,9 +4,6 @@ use Exception;
 
 abstract class AbstractParser
 {
-
-    protected $crawler;
-
     /**
      * Array of matches found
      *
@@ -22,18 +19,25 @@ abstract class AbstractParser
     protected $batchMax = 1000;
 
     /**
-     * The number of items in this batch
-     *
-     * @var integer
-     */
-    protected $batchCount = 0;
-
-    /**
      * Array of blocked strings
      *
      * @var array
      */
     protected $blockedArr = [];
+
+    /**
+     * The target domain
+     *
+     * @var string
+     */
+    protected $targetDomain = null;
+
+    /**
+     * The regex pattern
+     *
+     * @var string
+     */
+    protected $pattern;
 
     /**
      * Instantiate the Object
@@ -43,6 +47,80 @@ abstract class AbstractParser
         if (! isset($this->pattern)) {
             throw new Exception('You must have a pattern set in your parser!');
         }
+    }
+
+    /**
+     * Manually set the target domain
+     *
+     * @param string $targetDomain
+     */
+    public function setTargetDomain($targetDomain)
+    {
+        $this->targetDomain = $targetDomain;
+    }
+
+    /**
+     * Get the target domain
+     *
+     * @param string $targetDomain
+     */
+    public function getTargetDomain()
+    {
+        return $this->targetDomain;
+    }
+
+    /**
+     * Sets the The regex pattern.
+     *
+     * @param string $pattern The pattern
+     * @return self
+     */
+    protected function setPattern($pattern)
+    {
+        $this->pattern = $pattern;
+
+        return $this;
+    }
+
+    /**
+     * Gets the The regex pattern.
+     *
+     * @return string
+     */
+    public function getPattern()
+    {
+        return $this->pattern;
+    }
+
+    /**
+     * Return the matches
+     *
+     * @return array
+     */
+    public function getMatches()
+    {
+        return $this->matches;
+    }
+
+    /**
+     * Check the link against blocked strings
+     *
+     * @param  string $link
+     * @return bool
+     */
+    protected function checkBlockedStrings($link)
+    {
+        if (empty($this->blockedArr)) {
+            return true;
+        }
+
+        foreach ($this->blockedArr as $blocked) {
+            if (strpos($link, $blocked) !== false) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -93,23 +171,13 @@ abstract class AbstractParser
     }
 
     /**
-     * Return the matches
-     *
-     * @return array
-     */
-    public function getMatches()
-    {
-        return $this->matches;
-    }
-
-    /**
      * Returns the count of matches
      *
      * @return integer
      */
     public function count()
     {
-        return count($this->matches);
+        return count($this->getMatches());
     }
 
     /**

@@ -2,7 +2,7 @@
 
 use Braseidon\Mole\Api\Index;
 use Braseidon\Mole\Http\Proxy;
-use Braseidon\Mole\Parser\Parser;
+use Braseidon\Mole\Parser\ParserFactory;
 use Braseidon\Mole\Traits\UsesConfig;
 
 class CrawlerFactory
@@ -58,15 +58,17 @@ class CrawlerFactory
      */
     public function getParser()
     {
-        return new Parser($this->getAllOptions());
+        return ParserFactory::create($this->getAllOptions());
     }
+
+
 
     /**
      * @return Proxy The Proxy object
      */
     public function getProxy()
     {
-        return new Proxy($this->getOption('proxy_list_path'));
+        return new Proxy($this->getOption('proxy_path'));
     }
 
     /**

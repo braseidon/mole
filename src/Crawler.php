@@ -333,7 +333,7 @@ class Crawler extends RollingCurl
         $httpCode = array_get($request->getResponseInfo(), 'http_code');
         $html = $request->getResponseText();
 
-        echo 'Crawled: ' . $request->getUrl() . '<br />';
+        echo '#' . $this->countCompleted() . ' - ' . $request->getUrl() . '<br />';
 
         if ($httpCode >= 200 && $httpCode < 400 && !empty($html)) {
             // Set the domain we're crawling, if it doesn't then work return false
@@ -341,8 +341,11 @@ class Crawler extends RollingCurl
                 return false;
             }
 
-            $pattern = '/href="([^#"]*)"/i';
-            $newLinks = $this->pregMatch($pattern, $html);
+            $linkPattern = '/href="([^#"]*)"/i';
+            $newLinks = $this->pregMatch('links_internal', $linkPattern, $html);
+
+            $emailPattern = '/[a-z0-9_\-\+]+@[a-z0-9\-]+\.([a-z]{2,3})(?:\.[a-z]{2})?/i';
+            $newEmails = $this->pregMatch('emails', $emailPattern, $html);
 
             $rollingCurl->addRequests($newLinks);
         }
@@ -356,7 +359,7 @@ class Crawler extends RollingCurl
      * @param  string $html
      * @return mixed
      */
-    public function pregMatch($pattern, $html)
+    public function pregMatch($type, $pattern, $html)
     {
         // Parse - URL's
         $savedMatches = [];
@@ -364,11 +367,18 @@ class Crawler extends RollingCurl
         if (preg_match_all($pattern, $html, $matches, PREG_PATTERN_ORDER)) {
             $matches = array_unique($matches[1]);
 
-            foreach ($matches as $k => $link) {
-                if (! $link = $this->filterLinks($link)) {
-                    continue;
+            foreach ($matches as $k => $match) {
+                if ($type == 'links_internal') {
+                    if (! $match = $this->filterLinks($match)) {
+                        continue;
+                    }
+                } elseif ($type == 'emails') {
+                    if (! $match = $this->filterEmails($match)) {
+                        continue;
+                    }
                 }
-                $savedMatches[] = $link;
+
+                $savedMatches[] = $match;
             }
 
             unset($matches, $html);
@@ -400,6 +410,7 @@ class Crawler extends RollingCurl
         if ($this->getOption('max_depth', 0) > 0 && strpos($link, 'http') === false && substr_count($link, '/') > $this->getOption('max_depth', 0)) {
             return false;
         }
+
         if (strpos($link, 'http') === false && strpos($link, '/') === 0) {              // Check for a relative path starting with a forward slash
             $link = $this->domain['domain_full'] . $link;                               // Prefix the full domain
         } elseif (strpos($link, 'http') === false && strpos($link, '/') === false) {    // Check for a same directory reference
@@ -415,5 +426,16 @@ class Crawler extends RollingCurl
         }
 
         return $link;
+    }
+
+    /**
+     * Filter emails for saving
+     *
+     * @param  string $email
+     * @return string|bool
+     */
+    public function filterEmails($email)
+    {
+        $email = trim(urldecode($email));
     }
 }

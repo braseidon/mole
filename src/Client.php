@@ -1,6 +1,7 @@
 <?php namespace Braseidon\Mole;
 
 use Braseidon\Mole\Traits\UsesConfig;
+
 use Exception;
 use InvalidArgumentException;
 
@@ -115,6 +116,32 @@ class Client
         }
 
         return $ignoredFiletypes;
+    }
+
+    /**
+     * @param string Set the proxy_path
+     */
+    public function setProxyPath($proxyPath)
+    {
+        if (! file_exists($proxyPath)) {
+            throw new InvalidArgumentException('The file at the `proxy_path` specified does not exist.');
+        }
+
+        $this->setOption('proxy_path', $proxyPath);
+    }
+
+    /**
+     * @return string Get the request Callback.
+     */
+    public function getProxyPath()
+    {
+        $proxyPath = 2;
+
+        if (! $this->hasOption('proxy_path')) {
+            return $this->getOption('proxy_path');
+        }
+
+        return $proxyPath;
     }
 
     /**

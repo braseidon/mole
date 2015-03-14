@@ -9,5 +9,13 @@ interface ParserTypeInterface
      * @param  string $html
      * @return bool
      */
-    public function findMatches($html);
+    public function run($html);
+
+    /**
+     * Parse an item, deciding whether to keep it
+     *
+     * @param  string $item
+     * @return string $item
+     */
+    public function parse($item);
 }

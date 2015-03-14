@@ -171,69 +171,28 @@ class Parser implements ParserInterface
     }
 
     /**
-     * Use regex to find matches
+     * Process the returned HTML with our parsers
      *
-     * @param  string $html
-     * @return mixed
+     * @param  Request     $request
+     * @param  RollingCurl $rolling_curl
+     * @return void
      */
-    public function pregMatch($pattern, $html)
+    public function parseHtml(Request $request, RollingCurl $rolling_curl)
     {
-        // Parse - URL's
-        $savedMatches = [];
-
-        if (preg_match_all($pattern, $html, $matches, PREG_PATTERN_ORDER)) {
-            $matches = array_unique($matches[1]);
-
-            foreach ($matches as $k => $link) {
-                if (! $link = $this->filterMatches($link)) {
-                    continue;
-                }
-                $savedMatches[] = $link;
-            }
-
-            unset($matches, $html);
+        $url        = $request->getUrl();
+        $httpCode   = array_get($request->getResponseInfo(), 'http_code', false);
+        $html       = $request->getResponseText();
+        // Add URL to index (or update count)
+        $this->index->addUrl($url);
+        if ($httpCode >= 200 and $httpCode < 400 and ! empty($html)) {
+            // Parse - Links
+            $this->linkParser->findMatches($html);
+            // Parse - Emails
+            $this->emailParser->findMatches($html);
+            // Garbage collect
+            unset($html, $url, $httpCode);
+            // Crawl any newly found URLs
+            $this->crawlUrls();
         }
-        // dd($savedMatches);
-        return $savedMatches;
-    }
-
-    /**
-     * Check each link to see if its fit for crawling
-     *
-     * @param  string $link
-     * @return string|bool
-     */
-    public function filterMatches($link)
-    {
-        $link = trim(urldecode($link));
-
-        if (strlen($link) === 0) {
-            $link = '/';
-        }
-
-        // Check blocked strings
-        if ($this->hasIgnoredStrings($link)) {
-            return false;
-        }
-
-        // Don't allow more than maxDepth forward slashes in the URL
-        if ($this->getConfig('max_depth', 0) > 0 && strpos($link, 'http') === false && substr_count($link, '/') > $this->getConfig('max_depth', 0)) {
-            return false;
-        }
-        if (strpos($link, 'http') === false && strpos($link, '/') === 0) {              // Check for a relative path starting with a forward slash
-            $link = $this->domain['domain_full'] . $link;                               // Prefix the full domain
-        } elseif (strpos($link, 'http') === false && strpos($link, '/') === false) {    // Check for a same directory reference
-            if (strpos($link, 'www.') !== false) {
-                continue;
-            }
-            $link = $this->domain['domain_full'] . '/' . $link;
-        } elseif (strpos($link, 'mailto:') !== false) {                                 // Dont index email addresses
-            // $this->parser->addMatch(str_replace('mailto:', '', $link));
-            return false;
-        } elseif (strpos($link, $this->domain['domain_plain']) === false) {               // Skip link if it isnt on the same domain
-            return false;
-        }
-
-        return $link;
     }
 }

@@ -1,7 +1,5 @@
 <?php namespace Braseidon\Mole\Http;
 
-use File;
-
 use Exception;
 use InvalidArgumentException;
 
@@ -135,11 +133,11 @@ class Proxy
             throw new InvalidArgumentException('You need to include a proxy path.');
         }
 
-        if (File::exists($path)) {
-            return File::get($path);
+        if (! file_exists($path)) {
+            throw new InvalidArgumentException('Proxy list path is incorrect or the file does not exist.');
         }
 
-        throw new InvalidArgumentException('Proxy list path is incorrect or the file does not exist.');
+        return file_get_contents($path);
     }
 
     /**
