@@ -1,6 +1,6 @@
 <?php namespace Braseidon\Mole\Api;
 
-class Index implements IndexInterface
+class Index implements CacheInterface
 {
 
     /**
@@ -14,33 +14,29 @@ class Index implements IndexInterface
     protected $index = [];
 
     /**
-     * Adds a URL if it isn't indexd
+     * Adds an item if it isn't indexed
      *
-     * @param string $url
+     * @param string $item
      */
-    public function add($url)
+    public function add($item)
     {
-        $url = $this->clean($url);
+        $item = $this->clean($item);
 
-        if (! $this->check($url)) {
-            $this->index[$url] = true;
+        if (! $this->check($item)) {
+            $this->index[$item] = true;
         }
     }
 
     /**
-     * Checks if a URL is indexd
+     * Checks if an item is indexed
      *
-     * @param string $url
+     * @param string $item
      */
-    public function check($url)
+    public function check($item)
     {
-        if (empty($url)) {
-            return false;
-        }
+        $item = $this->clean($item);
 
-        $url = $this->clean($url);
-
-        if (isset($this->index[$url])) {
+        if (isset($this->index[$item])) {
             return true;
         }
 
@@ -50,12 +46,12 @@ class Index implements IndexInterface
     /**
      * Clean the URL for consistent index checking
      *
-     * @param  string $url
+     * @param  string $item
      * @return string
      */
-    public function clean($url)
+    public function clean($item)
     {
-        return str_ireplace(['http://', 'https://', 'www.'], '', rtrim($url, '/'));
+        return trim(strtolower($item));
     }
 
     /**

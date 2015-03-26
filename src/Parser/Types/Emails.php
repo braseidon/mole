@@ -32,4 +32,15 @@ class Emails extends AbstractParser implements ParserTypeInterface
     {
         //
     }
+
+    /**
+     * Add the item to the database if it doens't exist
+     *
+     * @param  string $item
+     * @return bool
+     */
+    public function checkIndex($item)
+    {
+        //
+    }
 }

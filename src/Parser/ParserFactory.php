@@ -1,6 +1,6 @@
 <?php namespace Braseidon\Mole\Parser;
 
-use Braseidon\Mole\Cache\WebCache;
+use Braseidon\Mole\Api\UrlCache;
 use Braseidon\Mole\Parser\Types\Emails;
 use Braseidon\Mole\Parser\Types\ExternalLinks;
 use Braseidon\Mole\Parser\Types\InternalLinks;
@@ -29,6 +29,8 @@ class ParserFactory
     {
         $parser = new Parser(
             $this->getAllOptions(),
+            $this->getUrlCache(),
+            $this->getInternalLinks(),
             $this->getParserTypes()
         );
 
@@ -36,19 +38,33 @@ class ParserFactory
     }
 
     /**
-     * Get the Cache object
+     * Get the UrlCache object
      *
-     * @return Cache
+     * @return UrlCache
      */
-    protected function getCache()
+    protected function getUrlCache()
     {
-        return new Cache();
+        return new UrlCache();
     }
 
+    /**
+     * Get the InternalLinks object
+     *
+     * @return InternalLinks
+     */
+    protected function getInternalLinks()
+    {
+        return new InternalLinks();
+    }
+
+    /**
+     * Returns the Parser types
+     *
+     * @return array
+     */
     public function getParserTypes()
     {
         return [
-            new InternalLinks(),
             new ExternalLinks(),
             new Emails()
         ];

@@ -1,6 +1,6 @@
 <?php namespace Braseidon\Mole\Api;
 
-class UrlCache implements UrlCacheInterface
+class UrlCache implements CacheInterface
 {
 
     /**
@@ -8,7 +8,7 @@ class UrlCache implements UrlCacheInterface
      *
      * @var array
      */
-    protected $cacheHistory = [];
+    protected $cache = [];
 
     /**
      * The max items to have in a batch
@@ -16,13 +16,6 @@ class UrlCache implements UrlCacheInterface
      * @var integer
      */
     protected $batchMax = 1000;
-
-    /**
-     * The number of items in this batch
-     *
-     * @var integer
-     */
-    protected $batchCount = 0;
 
     /**
      * Adds a URL if it isn't cached
@@ -33,9 +26,10 @@ class UrlCache implements UrlCacheInterface
     {
         $url = $this->clean($url);
 
-        if (! $this->checkUrl($url)) {
-            $this->cacheHistory[$url] = true;
-            $this->batchCount++;
+        if (! $this->check($url)) {
+            $this->cache[$url] = true;
+
+            return true;
         }
 
         return false;
@@ -50,7 +44,7 @@ class UrlCache implements UrlCacheInterface
     {
         $url = $this->clean($url);
 
-        if (isset($this->cacheHistory[$url])) {
+        if (isset($this->cache[$url])) {
             return true;
         }
 
@@ -63,7 +57,7 @@ class UrlCache implements UrlCacheInterface
      * @param  string $url
      * @return string
      */
-    private function clean($url)
+    public function clean($url)
     {
         return str_ireplace(['http://', 'https://', 'www.'], '', rtrim($url, '/'));
     }
@@ -75,7 +69,7 @@ class UrlCache implements UrlCacheInterface
      */
     public function all()
     {
-        return $this->cacheHistory;
+        return $this->cache;
     }
 
     /**
@@ -85,6 +79,6 @@ class UrlCache implements UrlCacheInterface
      */
     public function count()
     {
-        return count($this->cacheHistory);
+        return count($this->cache);
     }
 }

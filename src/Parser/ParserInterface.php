@@ -13,8 +13,20 @@ interface ParserInterface
      */
     public function setPattern($pattern);
 
+    /**
+     * Uses PregMatch to filter the HTML
+     *
+     * @param  string $pattern
+     * @param  string $html
+     * @return array
+     */
+    public function matches($pattern, $html);
 
-    public function pregMatch($pattern, $html);
-
-    public function filterMatches($html);
+    /**
+     * Filter the matches for specific results
+     *
+     * @param  string $html
+     * @return string
+     */
+    public function filter($html);
 }

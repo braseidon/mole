@@ -40,36 +40,6 @@ abstract class AbstractParser
     protected $pattern;
 
     /**
-     * Instantiate the Object
-     */
-    public function __construct()
-    {
-        if (! isset($this->pattern)) {
-            throw new Exception('You must have a pattern set in your parser!');
-        }
-    }
-
-    /**
-     * Manually set the target domain
-     *
-     * @param string $targetDomain
-     */
-    public function setTargetDomain($targetDomain)
-    {
-        $this->targetDomain = $targetDomain;
-    }
-
-    /**
-     * Get the target domain
-     *
-     * @param string $targetDomain
-     */
-    public function getTargetDomain()
-    {
-        return $this->targetDomain;
-    }
-
-    /**
      * Sets the The regex pattern.
      *
      * @param string $pattern The pattern
@@ -103,19 +73,19 @@ abstract class AbstractParser
     }
 
     /**
-     * Check the link against blocked strings
+     * Check the item against blocked strings
      *
-     * @param  string $link
+     * @param  string $item
      * @return bool
      */
-    protected function checkBlockedStrings($link)
+    protected function checkBlockedStrings($item)
     {
         if (empty($this->blockedArr)) {
             return true;
         }
 
         foreach ($this->blockedArr as $blocked) {
-            if (strpos($link, $blocked) !== false) {
+            if (strpos($item, $blocked) !== false) {
                 return false;
             }
         }
@@ -129,8 +99,12 @@ abstract class AbstractParser
      * @param  string $html
      * @return bool
      */
-    public function findMatches($html)
+    public function pregMatch($html)
     {
+        if (! isset($this->pattern)) {
+            throw new Exception('You must have a pattern set in your parser!');
+        }
+
         $rawMatches = [];
 
         if (preg_match_all($this->pattern, $html, $rawMatches, PREG_PATTERN_ORDER)) {
@@ -151,7 +125,6 @@ abstract class AbstractParser
     {
         if (! $this->checkMatch($string)) {
             $this->matches[$string] = true;
-            $this->batchCount++;
         }
     }
 
@@ -190,6 +163,5 @@ abstract class AbstractParser
         // database/file/etc store
 
         $this->matches = [];
-        $this->batchCount = 0;
     }
 }

@@ -9,7 +9,15 @@ interface ParserTypeInterface
      * @param  string $html
      * @return bool
      */
-    public function run($html);
+    // public function run($html);
+
+    /**
+     * Preg Match the HTML for a pattern
+     *
+     * @param  string $html
+     * @return array|null
+     */
+    public function pregMatch($html);
 
     /**
      * Parse an item, deciding whether to keep it
@@ -18,4 +26,12 @@ interface ParserTypeInterface
      * @return string $item
      */
     public function parse($item);
+
+    /**
+     * Checks if the matched item is in the database
+     *
+     * @param  string $item
+     * @return bool
+     */
+    public function checkIndex($item);
 }

@@ -1,18 +1,19 @@
 <?php namespace Braseidon\Mole\Parser;
 
-use Braseidon\Mole\Cache\Http\WebCacheInterface;
+use Braseidon\Mole\Api\CacheInterface;
+use Braseidon\Mole\Parser\Types\InternalLinks;
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;
 use Braseidon\Mole\Traits\UsesConfig;
 
-class Parser implements ParserInterface
+class Parser
 {
     use UsesConfig;
 
     /**
-     * @var WebCache $cache The WebCache object
+     * @var CacheInterface $urlCache The CacheInterface object
      */
-    protected $cache;
+    protected $urlCache;
 
     /**
      * @var string $pattern The regex pattern to search for
@@ -30,29 +31,62 @@ class Parser implements ParserInterface
     protected $domain = [];
 
     /**
+     * The InternalLinks This is needed for crawling
+     *
+     * @var InternalLinks $internalLinks
+     */
+    protected $internalLinks;
+
+    /**
+     * The various parsers
+     *
+     * @var array
+     */
+    protected $parsers;
+
+    /**
      * Instantiate the Parser object
      *
-     * @param WebCacheInterface $cache
+     * @param CacheInterface $urlCache
      */
-    public function __construct(array $config = [])
+    public function __construct(array $config, CacheInterface $urlCache, InternalLinks $internalLinks, array $parsers)
     {
         $this->mergeOptions($config);
+        $this->setUrlCache($urlCache);
+        $this->setInternalLinks($internalLinks);
+        $this->parsers = $parsers;
     }
 
     /**
-     * @param WebCache Instantiate the WebCache
+     * @param CacheInterface Instantiate the UrlCache
      */
-    public function setWebCache(WebCacheInterface $cache)
+    public function setUrlCache(CacheInterface $urlCache)
     {
-        $this->cache = $cache;
+        $this->urlCache = $urlCache;
     }
 
     /**
-     * @return WebCache Get the WebCache instance
+     * @return UrlCache Get the UrlCache instance
      */
-    public function getCache()
+    public function getUrlCache()
     {
-        return $this->cache;
+        return $this->urlCache;
+    }
+
+    /**
+     * @param InternalLinks Instantiate the InternalLinks
+     */
+    public function setInternalLinks(InternalLinks $internalLinks)
+    {
+        $this->internalLinks = $internalLinks;
+    }
+
+    /**
+     * @return InternalLinks Get the InternalLinks instance
+     */
+    public function getInternalLinks()
+    {
+        return $this->internalLinks;
     }
 
     /**
@@ -80,16 +114,6 @@ class Parser implements ParserInterface
     }
 
     /**
-     * Set the regex pattern to match on
-     *
-     * @param string $pattern
-     */
-    public function setPattern($pattern)
-    {
-        $this->pattern = $pattern;
-    }
-
-    /**
      * Set the domain we're crawling
      *
      * @param string $url
@@ -110,40 +134,50 @@ class Parser implements ParserInterface
 
     /*
     |--------------------------------------------------------------------------
-    | Parsing Functions
+    | Parser
     |--------------------------------------------------------------------------
     |
     |
     */
 
     /**
-     * Check the link against blocked strings
+     * Process the returned HTML with our parsers
      *
-     * @param  string $link
-     * @return bool
+     * @param  Request     $request
+     * @param  RollingCurl $rolling_curl
+     * @return void
      */
-    protected function hasIgnoredStrings($link)
+    public function parseHtml(Request $request, RollingCurl $crawler)
     {
-        if (! $this->getConfig('ignore_file_types', false)) {
-            return false;
-        }
+        $url        = $request->getUrl();
+        $httpCode   = array_get($request->getResponseInfo(), 'http_code', false);
+        $html       = $request->getResponseText();
 
-        foreach ($this->getConfig('ignore_file_types') as $blocked) {
-            if (strpos($link, $blocked) !== false) {
-                return true;
-            }
-        }
+        // Add URL to index (or update count)
+        $this->getUrlCache()->add($url);
 
-        return false;
+        if ($httpCode >= 200 and $httpCode < 400 and ! empty($html)) {
+            // Parse - Links
+            $newLinks = $this->getInternalLinks()->run($html);
+            dd($newLinks);
+
+            // Parse - Emails
+            $this->emailParser->run($html);
+
+            // Garbage collect
+            unset($html, $url, $httpCode);
+
+            // Crawl any newly found URLs
+            $crawler->crawlUrls();
+        }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Parser
-    |--------------------------------------------------------------------------
-    |
-    |
-    */
+    // public function runParsers($html)
+    // {
+    //     foreach ($this->manipulators as $manipulator) {
+    //         $image = $manipulator->run($request, $image);
+    //     }
+    // }
 
     /**
      * The RollingCurl callback function
@@ -168,31 +202,5 @@ class Parser implements ParserInterface
         $newLinks = $this->pregMatch($pattern, $html);
 
         $rollingCurl->addRequests($newLinks);
-    }
-
-    /**
-     * Process the returned HTML with our parsers
-     *
-     * @param  Request     $request
-     * @param  RollingCurl $rolling_curl
-     * @return void
-     */
-    public function parseHtml(Request $request, RollingCurl $rolling_curl)
-    {
-        $url        = $request->getUrl();
-        $httpCode   = array_get($request->getResponseInfo(), 'http_code', false);
-        $html       = $request->getResponseText();
-        // Add URL to index (or update count)
-        $this->index->addUrl($url);
-        if ($httpCode >= 200 and $httpCode < 400 and ! empty($html)) {
-            // Parse - Links
-            $this->linkParser->findMatches($html);
-            // Parse - Emails
-            $this->emailParser->findMatches($html);
-            // Garbage collect
-            unset($html, $url, $httpCode);
-            // Crawl any newly found URLs
-            $this->crawlUrls();
-        }
     }
 }

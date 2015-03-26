@@ -3,7 +3,7 @@
 use Braseidon\Mole\Api\Index;
 use Braseidon\Mole\Http\Proxy;
 use Braseidon\Mole\Http\UserAgent;
-use Braseidon\Mole\Parser\ParserInterface;
+use Braseidon\Mole\Parser\Parser;
 use RollingCurl\Request;
 use RollingCurl\RollingCurl;
 use Braseidon\Mole\Traits\ZebraTrait;
@@ -63,7 +63,7 @@ class Crawler extends RollingCurl
      *
      * @param array $config
      */
-    public function __construct(array $config = [])   //Index $index, ParserInterface $parser, Proxy $proxy
+    public function __construct(array $config = [])   //Index $index, Parser $parser, Proxy $proxy
     {
         if (!extension_loaded('curl')) {
             throw new Exception('php_curl extension is not loaded.');
@@ -120,7 +120,7 @@ class Crawler extends RollingCurl
     /**
      * @param Parser Set the Parser
      */
-    public function setParser(ParserInterface $parser)
+    public function setParser(Parser $parser)
     {
         $this->parser = $parser;
     }
@@ -247,54 +247,6 @@ class Crawler extends RollingCurl
 
     /*
     |--------------------------------------------------------------------------
-    | Parsing Functions
-    |--------------------------------------------------------------------------
-    |
-    |
-    */
-
-    /**
-     * Break the target into parts and set as domain
-     *
-     * @param string $url
-     */
-    public function setDomain($url)
-    {
-        if (! $parts = parse_url($url)) {
-            return false;
-        }
-
-        $this->domain = $parts;
-        $this->domain['scheme'] = $this->domain['scheme'] . '://';
-        $this->domain['domain_plain'] = str_ireplace('www.', '', $parts['host']);
-        $this->domain['domain_full'] = $this->domain['scheme'] . $parts['host'];
-
-        return $this->domain;
-    }
-
-    /**
-     * Check the link against blocked strings
-     *
-     * @param  string $link
-     * @return bool
-     */
-    protected function hasIgnoredStrings($link)
-    {
-        if (! $this->getOption('ignored_file_types', false)) {
-            return false;
-        }
-
-        foreach ($this->getOption('ignored_file_types') as $blocked) {
-            if (strpos($link, $blocked) !== false) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
     | RollingCurl - Crawling
     |--------------------------------------------------------------------------
     |
@@ -330,25 +282,10 @@ class Crawler extends RollingCurl
      */
     public function callback(Request $request, RollingCurl $rollingCurl)
     {
-        $httpCode = array_get($request->getResponseInfo(), 'http_code');
-        $html = $request->getResponseText();
+        $this->getParser()->parseHtml($request, $rollingCurl);
 
+        // Debug
         echo '#' . $this->countCompleted() . ' - ' . $request->getUrl() . '<br />';
-
-        if ($httpCode >= 200 && $httpCode < 400 && !empty($html)) {
-            // Set the domain we're crawling, if it doesn't then work return false
-            if (! $this->setDomain($request->getUrl())) {
-                return false;
-            }
-
-            $linkPattern = '/href="([^#"]*)"/i';
-            $newLinks = $this->pregMatch('links_internal', $linkPattern, $html);
-
-            $emailPattern = '/[a-z0-9_\-\+]+@[a-z0-9\-]+\.([a-z]{2,3})(?:\.[a-z]{2})?/i';
-            $newEmails = $this->pregMatch('emails', $emailPattern, $html);
-
-            $rollingCurl->addRequests($newLinks);
-        }
 
         $this->crawl();
     }
@@ -411,17 +348,22 @@ class Crawler extends RollingCurl
             return false;
         }
 
-        if (strpos($link, 'http') === false && strpos($link, '/') === 0) {              // Check for a relative path starting with a forward slash
-            $link = $this->domain['domain_full'] . $link;                               // Prefix the full domain
-        } elseif (strpos($link, 'http') === false && strpos($link, '/') === false) {    // Check for a same directory reference
+        // Check for a relative path starting with a forward slash
+        if (strpos($link, 'http') === false && strpos($link, '/') === 0) {
+            // Prefix the full domain
+            $link = $this->domain['domain_full'] . $link;
+        // Check for a same directory reference
+        } elseif (strpos($link, 'http') === false && strpos($link, '/') === false) {
             if (strpos($link, 'www.') !== false) {
                 continue;
             }
             $link = $this->domain['domain_full'] . '/' . $link;
-        } elseif (strpos($link, 'mailto:') !== false) {                                 // Dont index email addresses
+            // Dont index email addresses
+        } elseif (strpos($link, 'mailto:') !== false) {
             // $this->parser->addMatch(str_replace('mailto:', '', $link));
             return false;
-        } elseif (strpos($link, $this->domain['domain_plain']) === false) {               // Skip link if it isnt on the same domain
+            // Skip link if it isnt on the same domain
+        } elseif (strpos($link, $this->domain['domain_plain']) === false) {
             return false;
         }
 

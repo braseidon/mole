@@ -1,7 +1,5 @@
 <?php namespace Braseidon\Mole\Parser\Types;
 
-use RollingCurl\Request;
-
 class InternalLinks extends AbstractParser implements ParserTypeInterface
 {
 
@@ -19,6 +17,12 @@ class InternalLinks extends AbstractParser implements ParserTypeInterface
      */
     protected $maxDepth = 0;
 
+    /**
+     * Runs the parser
+     *
+     * @param  string $html
+     * @return array
+     */
     public function run($html)
     {
         // Parse - URL's
@@ -44,40 +48,51 @@ class InternalLinks extends AbstractParser implements ParserTypeInterface
     /**
      * Sends a link through various checks to add it to the request queue
      *
-     * @param  string $link
+     * @param  string $item
      * @return string|bool
      */
-    protected function parse($link)
+    public function parse($item)
     {
-        $link = trim(urldecode($link));
+        $item = trim(urldecode($item));
 
-        if (strlen($link) === 0) {
-            $link = '/';
+        if (strlen($item) === 0) {
+            $item = '/';
         }
 
         // Check blocked strings
-        if ($this->hasIgnoredStrings($link)) {
+        if ($this->checkBlockedStrings($item)) {
             return false;
         }
 
         // Don't allow more than maxDepth forward slashes in the URL
-        if ($this->getOption('max_depth', 0) > 0 && strpos($link, 'http') === false && substr_count($link, '/') > $this->getOption('max_depth', 0)) {
+        if ($this->getOption('max_depth', 0) > 0 && strpos($item, 'http') === false && substr_count($item, '/') > $this->getOption('max_depth', 0)) {
             return false;
         }
-        if (strpos($link, 'http') === false && strpos($link, '/') === 0) {              // Check for a relative path starting with a forward slash
-            $link = $this->domain['domain_full'] . $link;                               // Prefix the full domain
-        } elseif (strpos($link, 'http') === false && strpos($link, '/') === false) {    // Check for a same directory reference
-            if (strpos($link, 'www.') !== false) {
+        if (strpos($item, 'http') === false && strpos($item, '/') === 0) {              // Check for a relative path starting with a forward slash
+            $item = $this->domain['domain_full'] . $item;                               // Prefix the full domain
+        } elseif (strpos($item, 'http') === false && strpos($item, '/') === false) {    // Check for a same directory reference
+            if (strpos($item, 'www.') !== false) {
                 continue;
             }
-            $link = $this->domain['domain_full'] . '/' . $link;
-        } elseif (strpos($link, 'mailto:') !== false) {                                 // Dont index email addresses
-            // $this->parser->addMatch(str_replace('mailto:', '', $link));
+            $item = $this->domain['domain_full'] . '/' . $item;
+        } elseif (strpos($item, 'mailto:') !== false) {                                 // Dont index email addresses
+            // $this->parser->addMatch(str_replace('mailto:', '', $item));
             return false;
-        } elseif (strpos($link, $this->domain['domain_plain']) === false) {             // Skip link if it isnt on the same domain
+        } elseif (strpos($item, $this->domain['domain_plain']) === false) {             // Skip item if it isnt on the same domain
             return false;
         }
 
-        return $link;
+        return $item;
+    }
+
+    /**
+     * Add the item to the database if it doens't exist
+     *
+     * @param  string $item
+     * @return bool
+     */
+    public function checkIndex($item)
+    {
+        //
     }
 }
