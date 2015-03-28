@@ -1,5 +1,10 @@
 # Mole
 
+[![Author](http://img.shields.io/badge/author-@BraSeidon-blue.svg?style=flat-square)](https://twitter.com/BraSeidon)
+[![Latest Version](https://img.shields.io/github/release/braseidon/mole.svg?style=flat-square)](https://github.com/braseidon/mole/releases)
+[![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/braseidon/mole/blob/master/LICENSE)
+[![Total Downloads](https://img.shields.io/packagist/dt/braseidon/mole.svg?style=flat-square)](https://packagist.org/packages/braseidon/mole)
+
 Mole (name is still being decided) is a powerful web scaping tool. Basically, you specify a URL and what you are scraping (outbound links or emails so far), and Mole will continuously crawl until a limit is reached.
 
 ## Highlights

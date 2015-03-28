@@ -172,12 +172,18 @@ class Parser
         }
     }
 
-    // public function runParsers($html)
-    // {
-    //     foreach ($this->manipulators as $manipulator) {
-    //         $image = $manipulator->run($request, $image);
-    //     }
-    // }
+    /**
+     * Run all of the parsers
+     *
+     * @param  string $html
+     * @return void
+     */
+    public function runParsers($html)
+    {
+        foreach ($this->parsers as $parser) {
+            $parser->run($html);
+        }
+    }
 
     /**
      * The RollingCurl callback function
