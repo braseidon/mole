@@ -8,7 +8,6 @@ use RollingCurl\Request;
 use RollingCurl\RollingCurl;
 use Braseidon\Mole\Traits\ZebraTrait;
 use Braseidon\Mole\Traits\UsesConfig;
-
 use Exception;
 
 class Crawler extends RollingCurl
@@ -187,13 +186,10 @@ class Crawler extends RollingCurl
             return false;
         }
 
-        $request = new Request($url);
-        $request = $this->setRequestOptions($request);
-
-        $this->getIndex()->add($url);
+        $this->request($url, 'GET', null, null, $this->getRequestOptions());
         $this->numRequests++;
 
-        return $this->add($request);
+        return $this;
     }
 
     /**
@@ -202,17 +198,17 @@ class Crawler extends RollingCurl
      * @param  Request $request
      * @return Request
      */
-    protected function setRequestOptions(Request $request)
+    protected function getRequestOptions($options = [])
     {
         if ($this->getOption('use_user_agent') === true) {
-            $request->addOptions(UserAgent::generate());
+            $options = $options + UserAgent::generate();
         }
 
         if ($this->getOption('use_proxies') === true) {
-            $request->addOptions($this->getProxy()->getRandomProxy());
+            $options = $options + $this->getProxy()->getRandomProxy();
         }
 
-        return $request;
+        return $options;
     }
 
     /**
@@ -264,6 +260,7 @@ class Crawler extends RollingCurl
         if ($target !== null) {
             $this->setTarget($target);
             $this->addRequest($target);
+            $this->getParser()->setDomain($target);
         }
 
         if ($this->countCompleted() == 0 && ! $this->countPending()) {
@@ -282,46 +279,13 @@ class Crawler extends RollingCurl
      */
     public function callback(Request $request, RollingCurl $rollingCurl)
     {
-        $this->getParser()->parseHtml($request, $rollingCurl);
-
-        // Debug
         echo '#' . $this->countCompleted() . ' - ' . $request->getUrl() . '<br />';
 
+        $this->getIndex()->add($request->getUrl());
+
+        $newLinks = $this->getParser()->parseHtml($request, $rollingCurl);
+
         $this->crawl();
-    }
-
-    /**
-     * Use regex to find matches
-     *
-     * @param  string $html
-     * @return mixed
-     */
-    public function pregMatch($type, $pattern, $html)
-    {
-        // Parse - URL's
-        $savedMatches = [];
-
-        if (preg_match_all($pattern, $html, $matches, PREG_PATTERN_ORDER)) {
-            $matches = array_unique($matches[1]);
-
-            foreach ($matches as $k => $match) {
-                if ($type == 'links_internal') {
-                    if (! $match = $this->filterLinks($match)) {
-                        continue;
-                    }
-                } elseif ($type == 'emails') {
-                    if (! $match = $this->filterEmails($match)) {
-                        continue;
-                    }
-                }
-
-                $savedMatches[] = $match;
-            }
-
-            unset($matches, $html);
-        }
-        // dd($savedMatches);
-        return $savedMatches;
     }
 
     /**

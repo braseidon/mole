@@ -1,9 +1,14 @@
 <?php namespace Braseidon\Mole\Parser\Types;
 
+use Braseidon\Mole\Traits\UsesConfig;
+use DB;
 use Exception;
+use InvalidArgumentException;
 
 abstract class AbstractParser
 {
+    use UsesConfig;
+
     /**
      * Array of matches found
      *
@@ -24,13 +29,6 @@ abstract class AbstractParser
      * @var array
      */
     protected $blockedArr = [];
-
-    /**
-     * The target domain
-     *
-     * @var string
-     */
-    protected $targetDomain = null;
 
     /**
      * The regex pattern
@@ -72,13 +70,18 @@ abstract class AbstractParser
         return $this->matches;
     }
 
+    public function __construct(array $config = [])
+    {
+        $this->mergeOptions($config);
+    }
+
     /**
      * Check the item against blocked strings
      *
      * @param  string $item
      * @return bool
      */
-    protected function checkBlockedStrings($item)
+    protected function hasBlockedString($item)
     {
         if (empty($this->blockedArr)) {
             return true;
@@ -86,11 +89,11 @@ abstract class AbstractParser
 
         foreach ($this->blockedArr as $blocked) {
             if (strpos($item, $blocked) !== false) {
-                return false;
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
     /**
@@ -111,9 +114,13 @@ abstract class AbstractParser
             $rawMatches = array_unique($rawMatches[0]);
 
             foreach ($rawMatches as $match) {
-                $this->addMatch($match);
+                if ($this->parse($match) !== false) {
+                    $this->addMatch($match);
+                }
             }
         }
+
+        return $this->getMatches();
     }
 
     /**
@@ -123,9 +130,11 @@ abstract class AbstractParser
      */
     public function addMatch($string)
     {
-        if (! $this->checkMatch($string)) {
-            $this->matches[$string] = true;
+        if ($this->checkMatch($string)) {
+            return false;
         }
+
+        $this->matches[$string] = true;
     }
 
     /**
@@ -154,14 +163,13 @@ abstract class AbstractParser
     }
 
     /**
-     * Stores the current batch of matches
+     * Clean the match for the database
      *
-     * @return [type]
+     * @param  string $string
+     * @return string
      */
-    public function store()
+    public function clean($string)
     {
-        // database/file/etc store
-
-        $this->matches = [];
+        return trim(strtolower($string));
     }
 }

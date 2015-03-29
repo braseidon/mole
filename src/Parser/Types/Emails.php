@@ -4,6 +4,20 @@ class Emails extends AbstractParser implements ParserTypeInterface
 {
 
     /**
+     * The table that keeps the data this parser scrapes
+     *
+     * @var string
+     */
+    protected $table = 'mole_emails';
+
+    /**
+     * The table column that keeps the data this parser scrapes
+     *
+     * @var string
+     */
+    protected $tableColumn = 'email';
+
+    /**
      * Regex pattern
      *
      * @var string
@@ -19,7 +33,7 @@ class Emails extends AbstractParser implements ParserTypeInterface
      */
     public function run($html)
     {
-        //
+        $this->pregMatch($html);
     }
 
     /**
@@ -30,7 +44,7 @@ class Emails extends AbstractParser implements ParserTypeInterface
      */
     public function parse($item)
     {
-        //
+        return true;
     }
 
     /**

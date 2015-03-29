@@ -30,7 +30,7 @@ class ParserFactory
         $parser = new Parser(
             $this->getAllOptions(),
             $this->getUrlCache(),
-            $this->getInternalLinks(),
+            $this->getInternalLinks($this->getAllOptions()),
             $this->getParserTypes()
         );
 
@@ -65,7 +65,7 @@ class ParserFactory
     public function getParserTypes()
     {
         return [
-            new ExternalLinks(),
+            // new ExternalLinks(),
             new Emails()
         ];
     }

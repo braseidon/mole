@@ -21,6 +21,9 @@ class ClientFactory
      */
     public function __construct(array $config = [])
     {
+        // Increase the time limit!
+        ini_set('max_execution_time', 0);
+
         $this->mergeOptions($config);
     }
 
@@ -34,7 +37,7 @@ class ClientFactory
         $client = new Client($this->getAllOptions());
 
         $client->setOption('threads', $this->getOption('threads', 5));
-        $client->setOption('request_limit', $this->getOption('request_limit', 10));
+        $client->setOption('request_limit', $this->getOption('request_limit', 50));
         $client->setOption('max_depth', $this->getOption('max_depth', 0));
         $client->setOption('ignored_file_types', $this->getIgnoredFileTypes());
         $client->setOption('use_user_agent', $this->getOption('use_user_agent', true));

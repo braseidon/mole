@@ -21,14 +21,9 @@ class Parser
     protected $pattern;
 
     /**
-     * @var array $blockArr Array of blocked strings
-     */
-    protected $blockedFileTypes = ['.css', '.doc', '.gif', '.jpeg', '.jpg', '.js', '.pdf', '.png'];
-
-    /**
      * @var string $domain The domain we're crawling
      */
-    protected $domain = [];
+    protected $domain;
 
     /**
      * The InternalLinks This is needed for crawling
@@ -36,13 +31,6 @@ class Parser
      * @var InternalLinks $internalLinks
      */
     protected $internalLinks;
-
-    /**
-     * The various parsers
-     *
-     * @var array
-     */
-    protected $parsers;
 
     /**
      * Instantiate the Parser object
@@ -79,6 +67,8 @@ class Parser
     public function setInternalLinks(InternalLinks $internalLinks)
     {
         $this->internalLinks = $internalLinks;
+
+        return $this->internalLinks;
     }
 
     /**
@@ -89,47 +79,14 @@ class Parser
         return $this->internalLinks;
     }
 
-    /**
-     * @param array $config Set the config
-     */
-    public function setConfig($config = [])
-    {
-        $this->config = $config;
-    }
-
-    /**
-     * Get a config option
-     *
-     * @param  string $key
-     * @param  mixed $default
-     * @return mixed
-     */
-    public function getConfig($key, $default = null)
-    {
-        if (isset($this->config[$key])) {
-            return $this->config[$key];
-        }
-
-        return $default;
-    }
-
-    /**
-     * Set the domain we're crawling
-     *
-     * @param string $url
-     */
     public function setDomain($url)
     {
-        if ($parts = parse_url($url)) {
-            $this->domain = $parts;
-            $this->domain['scheme']         = $this->domain['scheme'] . '://';
-            $this->domain['domain_plain']   = str_ireplace('www.', '', $parts['host']);
-            $this->domain['domain_full']    = $this->domain['scheme'] . $parts['host'];
+        $this->domain = $url;
+    }
 
-            return $this->domain;
-        }
-
-        return false;
+    public function getDomain()
+    {
+        return $this->domain;
     }
 
     /*
@@ -153,22 +110,21 @@ class Parser
         $httpCode   = array_get($request->getResponseInfo(), 'http_code', false);
         $html       = $request->getResponseText();
 
-        // Add URL to index (or update count)
-        $this->getUrlCache()->add($url);
+        $newLinks = [];
 
         if ($httpCode >= 200 and $httpCode < 400 and ! empty($html)) {
             // Parse - Links
-            $newLinks = $this->getInternalLinks()->run($html);
-            dd($newLinks);
-
+            $newLinks = $this->getInternalLinks()->setDomain($this->getDomain())->run($html);
+            // dd($newLinks);
             // Parse - Emails
-            $this->emailParser->run($html);
+            $this->runParsers($html);
 
             // Garbage collect
             unset($html, $url, $httpCode);
 
-            // Crawl any newly found URLs
-            $crawler->crawlUrls();
+            if (! empty($newLinks)) {
+                $crawler->addRequests(array_keys($newLinks));
+            }
         }
     }
 
@@ -183,30 +139,5 @@ class Parser
         foreach ($this->parsers as $parser) {
             $parser->run($html);
         }
-    }
-
-    /**
-     * The RollingCurl callback function
-     *
-     * @param  Request     $request      The request object
-     * @param  RollingCurl $rolling_curl The current RollingCurl object
-     * @return void
-     */
-    public function parseLinks(Request $request, RollingCurl $rollingCurl)
-    {
-        $url = $request->getUrl();
-        $html = $request->getResponseText();
-
-        // Set the domain we're crawling, if it doesn't then work return false
-        if (! $this->setDomain($request->getUrl())) {
-            return false;
-        }
-
-        echo 'Crawled: ' . $url . '<br />';
-
-        $pattern = '/href="([^#"]*)"/i';
-        $newLinks = $this->pregMatch($pattern, $html);
-
-        $rollingCurl->addRequests($newLinks);
     }
 }
