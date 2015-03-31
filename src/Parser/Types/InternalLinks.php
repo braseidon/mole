@@ -37,11 +37,33 @@ class InternalLinks extends AbstractParser implements ParserTypeInterface
     protected $blockedArr = ['.css', '.doc', '.gif', '.jpeg', '.jpg', '.js', '.pdf', '.png'];
 
     /**
-     * The target domain
+     * The domain being scraped
      *
      * @var string
      */
     protected $domain;
+
+    /**
+     * Instantiate the Object
+     *
+     * @param array $config
+     */
+    public function __construct(array $config = [])
+    {
+        $this->mergeOptions($config);
+
+        $this->cache = \App::make('cache');
+    }
+
+    /**
+     * Set the domain being scraped
+     */
+    public function setDomain($domain)
+    {
+        $this->domain = $domain;
+
+        return $this;
+    }
 
     /**
      * Runs the parser
@@ -75,7 +97,7 @@ class InternalLinks extends AbstractParser implements ParserTypeInterface
     /**
      * Sends a link through various checks to add it to the request queue
      *
-     * @param  string $item
+     * @param  string $url
      * @return string|bool
      */
     public function parse($url)
@@ -112,55 +134,11 @@ class InternalLinks extends AbstractParser implements ParserTypeInterface
         return $url;
     }
 
-    /**
-     * Add the item to the database if it doens't exist
-     *
-     * @param  string $item
-     * @return bool
-     */
-    public function checkIndex($item)
-    {
-        //
-    }
-
     /*
     |--------------------------------------------------------------------------
-    | Interal Links Specific Stuff
+    | Cache
     |--------------------------------------------------------------------------
     |
     |
     */
-
-    /**
-     * Set the domain we're crawling
-     *
-     * @param string $url
-     */
-    public function setDomain($url)
-    {
-        if ($parts = parse_url($url)) {
-            $this->domain = $parts;
-            $this->domain['scheme']         = $this->domain['scheme'] . '://';
-            $this->domain['domain_plain']   = str_ireplace('www.', '', $parts['host']);
-            $this->domain['domain_full']    = $this->domain['scheme'] . $parts['host'];
-        }
-
-        return $this;
-    }
-
-    public function addToDB($string)
-    {
-        DB::table($this->table)
-            ->insert([
-                'target'    => $this->domain['domain_plain'],
-                'url'       => $string,
-            ]);
-    }
-
-    public function incrementDB($string)
-    {
-        DB::table($this->table)
-            ->where($this->tableColumn, '=', $string)
-            ->increment('crawl_count', 1, ['crawled' => 1]);
-    }
 }

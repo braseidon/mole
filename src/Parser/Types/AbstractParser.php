@@ -134,7 +134,7 @@ abstract class AbstractParser
             return false;
         }
 
-        $this->matches[$string] = true;
+        $this->matches[] = $string;
     }
 
     /**

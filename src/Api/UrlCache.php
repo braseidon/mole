@@ -1,14 +1,17 @@
 <?php namespace Braseidon\Mole\Api;
 
+use Braseidon\Mole\Traits\UsesConfig;
+
 class UrlCache implements CacheInterface
 {
+    use UsesConfig;
 
     /**
-     * Handles checking for first page requests
+     * Uses Laravel's Cache manager
      *
-     * @var array
+     * @var CacheManager
      */
-    protected $cache = [];
+    protected $cache;
 
     /**
      * The max items to have in a batch
@@ -16,6 +19,45 @@ class UrlCache implements CacheInterface
      * @var integer
      */
     protected $batchMax = 1000;
+
+    /**
+     * Cache Tag - The domain we're scraping
+     *
+     * @var string
+     */
+    protected $domain = 'freeforeclosuredatabase.com';
+
+    /**
+     * Cache Tag - The data we're scraping
+     *
+     * @var string
+     */
+    protected $cachetag = 'crawlerlinks';
+
+    /**
+     * Instantiate the Object
+     *
+     * @param array $config
+     */
+    public function __construct(array $config = [])
+    {
+        $this->mergeOptions($config);
+
+        $this->cache = \App::make('cache');
+    }
+
+    /**
+     * Checks if a URL is cached
+     *
+     * @param string $url
+     * @return bool Returns true if URL exists in cache
+     */
+    public function has($url)
+    {
+        $url = $this->clean($url);
+
+        return $this->cache->tags($this->domain)->has($url);
+    }
 
     /**
      * Adds a URL if it isn't cached
@@ -26,29 +68,7 @@ class UrlCache implements CacheInterface
     {
         $url = $this->clean($url);
 
-        if (! $this->check($url)) {
-            $this->cache[$url] = true;
-
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Checks if a URL is cached
-     *
-     * @param string $url
-     */
-    public function check($url)
-    {
-        $url = $this->clean($url);
-
-        if (isset($this->cache[$url])) {
-            return true;
-        }
-
-        return false;
+        return $this->cache->tags($this->domain)->put($url, true, $this->getOption('cache_time'));
     }
 
     /**
@@ -79,6 +99,6 @@ class UrlCache implements CacheInterface
      */
     public function count()
     {
-        return count($this->cache);
+        return ($this->cache->command('LLEN', ['queues:' . Config::get('queue.connections.redis.queue')]));
     }
 }

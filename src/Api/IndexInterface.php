@@ -4,7 +4,7 @@ interface IndexInterface
 {
     public function add($url);
 
-    public function check($url);
+    public function has($url);
 
     public function clean($url);
 

@@ -10,16 +10,39 @@ class Client
     use UsesConfig;
 
     /**
-     * @var string $target The target website to scrape
+     * The Crawler instance
+     *
+     * @var Crawler
      */
-    protected $target;
+    protected $crawler;
 
     /**
      * Instantiate the Object
      */
-    public function __construct(array $config = [])
+    public function __construct(Crawler $crawler, array $config = [])
     {
+        $this->setCrawler($crawler);
         $this->mergeOptions($config);
+    }
+
+    /**
+    * Set the Crawler
+    *
+    * @param Crawler $crawler
+    */
+    public function setCrawler(Crawler $crawler)
+    {
+        $this->crawler = $crawler;
+    }
+
+    /**
+     * Get the Crawler instance
+     *
+     * @return Crawler
+     */
+    public function getCrawler()
+    {
+        return $this->crawler;
     }
 
     /**
@@ -31,7 +54,7 @@ class Client
             throw new InvalidArgumentException('Option `target` must be a valid URL.');
         }
 
-        $this->target = $target;
+        $this->setOption('target', $target);
     }
 
     /**
@@ -62,10 +85,10 @@ class Client
         $threads = 2;
 
         if (! $this->hasOption('threads')) {
-            return $this->getOption('threads');
+            return $this->setOption('threads', $threads);
         }
 
-        return $threads;
+        return $this->getOption('threads');
     }
 
     /**
@@ -156,8 +179,18 @@ class Client
             $this->setTarget($target);
         }
 
-        $crawler = CrawlerFactory::create($this->getAllOptions());
+        $this->getCrawler()->mergeOptions($this->getAllOptions());
 
-        return $crawler->crawl($this->getTarget());
+        return $this->getCrawler()->crawl($target);
+    }
+
+    /**
+    * Turn on debug mode
+    *
+    * @return Crawler
+    */
+    public function debug()
+    {
+        return $this->getCrawler()->debugOn();
     }
 }

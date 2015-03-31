@@ -2,18 +2,15 @@
 
 use Braseidon\Mole\Api\CacheInterface;
 use Braseidon\Mole\Parser\Types\InternalLinks;
-use RollingCurl\Request;
-use RollingCurl\RollingCurl;
+use Braseidon\Mole\Parser\Types\Emails;
 use Braseidon\Mole\Traits\UsesConfig;
+
+use RollingCurl\RollingCurl;
+use RollingCurl\Request;
 
 class Parser
 {
     use UsesConfig;
-
-    /**
-     * @var CacheInterface $urlCache The CacheInterface object
-     */
-    protected $urlCache;
 
     /**
      * @var string $pattern The regex pattern to search for
@@ -33,16 +30,22 @@ class Parser
     protected $internalLinks;
 
     /**
+     * The Emails This is needed for scraping emails
+     *
+     * @var Emails $emails
+     */
+    protected $emails;
+
+    /**
      * Instantiate the Parser object
      *
      * @param CacheInterface $urlCache
      */
-    public function __construct(array $config, CacheInterface $urlCache, InternalLinks $internalLinks, array $parsers)
+    public function __construct(array $config, InternalLinks $internalLinks, Emails $emails)
     {
         $this->mergeOptions($config);
-        $this->setUrlCache($urlCache);
         $this->setInternalLinks($internalLinks);
-        $this->parsers = $parsers;
+        $this->setEmails($emails);
     }
 
     /**
@@ -79,11 +82,35 @@ class Parser
         return $this->internalLinks;
     }
 
+    /**
+     * @param InternalLinks Instantiate the InternalLinks
+     */
+    public function setEmails(Emails $emails)
+    {
+        $this->emails = $emails;
+
+        return $this->emails;
+    }
+
+    /**
+     * @return InternalLinks Get the InternalLinks instance
+     */
+    public function getEmails()
+    {
+        return $this->emails;
+    }
+
+    /**
+     * @param string $url The URL we're crawling
+     */
     public function setDomain($url)
     {
         $this->domain = $url;
     }
 
+    /**
+     * @return string
+     */
     public function getDomain()
     {
         return $this->domain;
@@ -114,16 +141,17 @@ class Parser
 
         if ($httpCode >= 200 and $httpCode < 400 and ! empty($html)) {
             // Parse - Links
-            $newLinks = $this->getInternalLinks()->setDomain($this->getDomain())->run($html);
-            // dd($newLinks);
+            $newLinks = $this->getInternalLinks()->run($html);
+
             // Parse - Emails
-            $this->runParsers($html);
+            $this->getEmails()->run($html);
+            // $this->runParsers($html);
 
             // Garbage collect
             unset($html, $url, $httpCode);
 
-            if (! empty($newLinks)) {
-                $crawler->addRequests(array_keys($newLinks));
+            if (! empty($newLinks) && is_array($newLinks)) {
+                $crawler->addRequests($newLinks);
             }
         }
     }

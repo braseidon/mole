@@ -4,7 +4,7 @@ interface CacheInterface
 {
     public function add($item);
 
-    public function check($item);
+    public function has($item);
 
     public function clean($item);
 

@@ -33,5 +33,7 @@ interface ParserTypeInterface
      * @param  string $item
      * @return bool
      */
-    public function checkIndex($item);
+    // public function has($item);
+
+    // public function add($item);
 }

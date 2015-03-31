@@ -9,20 +9,16 @@ use RollingCurl\RollingCurl;
 use Braseidon\Mole\Traits\ZebraTrait;
 use Braseidon\Mole\Traits\UsesConfig;
 use Exception;
+use InvalidArgumentException;
 
 class Crawler extends RollingCurl
 {
-    use UsesConfig, ZebraTrait;
-
-    /**
-     * @var string $target The target website being scraped
-     */
-    protected $target;
+    use UsesConfig;
 
     /**
      * @var array $domain The target website in parts
      */
-    protected $domain;
+    protected $domain = '';
 
     /**
      * @var integer $numRequests The number of requests added
@@ -58,6 +54,13 @@ class Crawler extends RollingCurl
     ];
 
     /**
+     * So the crawler knows if it started
+     *
+     * @var integer
+     */
+    private $started = false;
+
+    /**
      * Instantiate the Object
      *
      * @param array $config
@@ -89,7 +92,8 @@ class Crawler extends RollingCurl
             throw new InvalidArgumentException('Option `target` must be a valid URL.');
         }
 
-        $this->target = $target;
+        $this->setOption('target', $target);
+        $this->setDomain($target);
     }
 
     /**
@@ -97,7 +101,7 @@ class Crawler extends RollingCurl
      */
     public function getTarget()
     {
-        return $this->target;
+        return $this->getOption('target');
     }
 
     /**
@@ -164,6 +168,9 @@ class Crawler extends RollingCurl
      */
     public function addRequests(array $urls, $method = "GET")
     {
+        if (! empty($urls)) {
+            // dd($urls);
+        }
         foreach ($urls as $url) {
             $this->addRequest($url, $method);
         }
@@ -176,17 +183,27 @@ class Crawler extends RollingCurl
      * @param string $method
      * @param array  $options
      */
-    public function addRequest($url)
+    public function addRequest($url, $method = "GET", $postData = null, $headers = null, $options = null)
     {
+        if (empty($url)) {
+            throw new InvalidArgumentException('The parameter `url` cannot be empty or null.');
+        }
+
+        if (! parse_url($url)) {
+            dd('URL failed: ' . $url);
+            return false;
+            // throw new InvalidArgumentException('The URL `' . $url . '` is invalid. Check your code.');
+        }
+
+        if ($this->getIndex()->has($url)) {
+            return false;
+        }
+
         if ($this->getOption('request_limit') > 0 and $this->numRequests >= $this->getOption('request_limit')) {
             return false;
         }
 
-        if ($this->getIndex()->check($url)) {
-            return false;
-        }
-
-        $this->request($url, 'GET', null, null, $this->getRequestOptions());
+        $this->request($url, $method, $postData, $headers, $this->getRequestOptions());
         $this->numRequests++;
 
         return $this;
@@ -211,36 +228,6 @@ class Crawler extends RollingCurl
         return $options;
     }
 
-    /**
-     * @return array Set the ignoredFileTypes array
-     */
-    public function setIgnoredFileTypes(array $array = [])
-    {
-        $this->setOption('ignored_file_types', $array);
-    }
-
-    /**
-     * Get the ignored file types
-     *
-     * @return array  v3e2
-     *
-     */
-    public function getIgnoredFileTypes()
-    {
-        return $this->ignoredFileTypes;
-    }
-
-    /**
-     * Set the proxy file path and grab them
-     *
-     * @param  string $path
-     * @return void
-     */
-    public function importProxies($path)
-    {
-        $this->getProxy()->import($path);
-    }
-
     /*
     |--------------------------------------------------------------------------
     | RollingCurl - Crawling
@@ -257,16 +244,29 @@ class Crawler extends RollingCurl
      */
     public function crawl($target = null)
     {
-        if ($target !== null) {
-            $this->setTarget($target);
-            $this->addRequest($target);
-            $this->getParser()->setDomain($target);
+        // Stuff to do on first run
+        if ($this->started === false) {
+            if ($target !== null) {
+                $this->setTarget($target);
+                $this->setDomain($target);
+                $this->request($target);
+            } else {
+                $this->setDomain($this->getTarget());
+                $this->request($this->getTarget());
+            }
+
+            if ($this->numRequests < $this->getOption('request_limit')) {
+                $this->loadTargetsFromDB($this->getOption('request_limit'));
+            } elseif (! $this->getOption('request_limit')) {
+                $this->loadTargetsFromDB(100);
+            }
         }
 
         if ($this->countCompleted() == 0 && ! $this->countPending()) {
             throw new Exception('You need to set a target for crawling. (Or crawling is finished)');
         }
 
+        $this->started = true;
         $this->execute();
     }
 
@@ -279,7 +279,7 @@ class Crawler extends RollingCurl
      */
     public function callback(Request $request, RollingCurl $rollingCurl)
     {
-        echo '#' . $this->countCompleted() . ' - ' . $request->getUrl() . '<br />';
+        $this->log('#' . $this->countCompleted() . ' - ' . $request->getUrl() . '<br />');
 
         $this->getIndex()->add($request->getUrl());
 
@@ -288,60 +288,103 @@ class Crawler extends RollingCurl
         $this->crawl();
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Crawler Options
+    |--------------------------------------------------------------------------
+    |
+    |
+    */
+
     /**
-     * Check each link to see if its fit for crawling
+     * Sets the domain with all parts, and shares with dependencies
      *
-     * @param  string $link
-     * @return string|bool
+     * @param string $domain
      */
-    public function filterLinks($link)
+    public function setDomain($domain)
     {
-        $link = trim(urldecode($link));
-
-        if (strlen($link) === 0) {
-            $link = '/';
+        if (empty($domain)) {
+            throw new InvalidArgumentException('You cannot set `domain` to a empty string.');
         }
 
-        // Check blocked strings
-        if ($this->hasIgnoredStrings($link)) {
-            return false;
+        if ($parts = parse_url($domain)) {
+            $this->domain = $parts;
+            $this->domain['scheme']         = $this->domain['scheme'] . '://';
+            $this->domain['domain_plain']   = str_ireplace('www.', '', $parts['host']);
+            $this->domain['domain_full']    = $this->domain['scheme'] . $parts['host'];
+        } else {
+            throw new InvalidArgumentException('The domain specified was not a valid URL.');
         }
 
-        // Don't allow more than maxDepth forward slashes in the URL
-        if ($this->getOption('max_depth', 0) > 0 && strpos($link, 'http') === false && substr_count($link, '/') > $this->getOption('max_depth', 0)) {
-            return false;
-        }
-
-        // Check for a relative path starting with a forward slash
-        if (strpos($link, 'http') === false && strpos($link, '/') === 0) {
-            // Prefix the full domain
-            $link = $this->domain['domain_full'] . $link;
-        // Check for a same directory reference
-        } elseif (strpos($link, 'http') === false && strpos($link, '/') === false) {
-            if (strpos($link, 'www.') !== false) {
-                continue;
-            }
-            $link = $this->domain['domain_full'] . '/' . $link;
-            // Dont index email addresses
-        } elseif (strpos($link, 'mailto:') !== false) {
-            // $this->parser->addMatch(str_replace('mailto:', '', $link));
-            return false;
-            // Skip link if it isnt on the same domain
-        } elseif (strpos($link, $this->domain['domain_plain']) === false) {
-            return false;
-        }
-
-        return $link;
+        $this->getParser()->setDomain($this->domain);
+        $this->getIndex()->setDomain($this->domain);
     }
 
     /**
-     * Filter emails for saving
+     * Set the proxy file path and grab them
      *
-     * @param  string $email
-     * @return string|bool
+     * @param  string $path
+     * @return void
      */
-    public function filterEmails($email)
+    public function importProxies($path)
     {
-        $email = trim(urldecode($email));
+        $this->getProxy()->import($path);
+    }
+
+    /**
+     * Load target URLs from the IndexDB
+     *
+     * @param  integer $limit 100 is the max
+     * @return void
+     */
+    public function loadTargetsFromDB($limit)
+    {
+        $num = ($limit - $this->countPending());
+        $num = $num > 100 ? 100 : $num;
+
+        $urls = $this->getIndex()->getUncrawledUrls($num);
+        // dd(json_encode($urls));
+        $this->addRequests($urls);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Debug Stuff
+    |--------------------------------------------------------------------------
+    |
+    |
+    */
+
+    /**
+     * Turn on debug mode
+     *
+     * @return void
+     */
+    public function debugOn()
+    {
+        $this->debug = true;
+
+        $this->log('<h1>Mole Debug</h1>');
+    }
+
+    /**
+    * Debug a message
+    *
+    * @param  string $message
+    * @return void
+    */
+    public function log($message)
+    {
+        if ($this->debug === true) {
+            if (is_string($message)) {
+                echo $message . '<br />';
+            } elseif (is_array($message)) {
+                echo '<ul>';
+                foreach ($message as $m) {
+                    echo '<li>' . $m . '</li>';
+                }
+                echo '</ul>';
+            }
+        }
     }
 }

@@ -34,7 +34,7 @@ class ClientFactory
      */
     public function getClient()
     {
-        $client = new Client($this->getAllOptions());
+        $client = new Client($this->getCrawler(), $this->getAllOptions());
 
         $client->setOption('threads', $this->getOption('threads', 5));
         $client->setOption('request_limit', $this->getOption('request_limit', 50));
@@ -44,6 +44,16 @@ class ClientFactory
         $client->setOption('use_proxies', $this->getOption('use_proxies', false));
 
         return $client;
+    }
+
+    /**
+     * Create a Crawler instance
+     *
+     * @return Crawler
+     */
+    public function getCrawler()
+    {
+        return CrawlerFactory::create($this->getAllOptions());
     }
 
     /**
