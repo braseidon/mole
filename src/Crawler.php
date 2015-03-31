@@ -309,9 +309,9 @@ class Crawler extends RollingCurl
 
         if ($parts = parse_url($domain)) {
             $this->domain = $parts;
-            $this->domain['scheme']         = $this->domain['scheme'] . '://';
+            $this->domain['scheme']         = $parts['scheme'] . '://';
             $this->domain['domain_plain']   = str_ireplace('www.', '', $parts['host']);
-            $this->domain['domain_full']    = $this->domain['scheme'] . $parts['host'];
+            $this->domain['domain_full']    = $parts['scheme'] . '://' . $parts['host'];
         } else {
             throw new InvalidArgumentException('The domain specified was not a valid URL.');
         }

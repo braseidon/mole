@@ -79,7 +79,7 @@ class Emails extends AbstractParser implements ParserTypeInterface
     {
         $emails = $this->getMatches();
 
-        if (! count($emails)) {
+        if (count($emails) == 0) {
             return false;
         }
 

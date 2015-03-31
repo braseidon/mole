@@ -137,6 +137,7 @@ class Index implements IndexInterface
     {
         $check = $this->isPageIndexed($string);
         $check = $check->where('crawled', '=', 1);
+        // dd($string . ': ' . $check->count());
 
         if ($check->count() > 0) {
             return true;
@@ -206,6 +207,7 @@ class Index implements IndexInterface
         return DB::table($this->table['table'])
             ->where('target', '=', $this->domain['domain_plain'])
             ->where('crawled', '=', 0)
+            ->where('crawl_count', '=', 0)
             ->limit($num)
             ->lists('url');
     }

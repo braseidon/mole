@@ -101,11 +101,12 @@ class Parser
     }
 
     /**
-     * @param string $url The URL we're crawling
+     * @param string $domain The URL we're crawling
      */
-    public function setDomain($url)
+    public function setDomain($domain)
     {
-        $this->domain = $url;
+        $this->getInternalLinks()->setDomain($domain);
+        $this->domain = $domain;
     }
 
     /**
