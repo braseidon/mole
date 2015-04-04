@@ -1,6 +1,7 @@
 # Project
 /.resource
 /src/Parser/Unused
+/Trash
 
 # Composer
 /vendor

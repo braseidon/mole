@@ -55,6 +55,7 @@ class Client
         }
 
         $this->setOption('target', $target);
+        $this->getCrawler()->setTarget($target);
     }
 
     /**

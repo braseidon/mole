@@ -4,10 +4,11 @@ use Braseidon\Mole\Api\Index;
 use Braseidon\Mole\Http\Proxy;
 use Braseidon\Mole\Http\UserAgent;
 use Braseidon\Mole\Parser\Parser;
-use RollingCurl\Request;
-use RollingCurl\RollingCurl;
-use Braseidon\Mole\Traits\ZebraTrait;
 use Braseidon\Mole\Traits\UsesConfig;
+use Braseidon\Mole\Traits\ZebraTrait;
+use Braseidon\RollingCurl\Request;
+use Braseidon\RollingCurl\RollingCurl;
+
 use Exception;
 use InvalidArgumentException;
 
@@ -41,16 +42,17 @@ class Crawler extends RollingCurl
     protected $proxy;
 
     protected $options = [
-        CURLINFO_HEADER_OUT         =>  1,
-        CURLOPT_AUTOREFERER         =>  1,
-        CURLOPT_COOKIEFILE          =>  '',
-        CURLOPT_CONNECTTIMEOUT      =>  10,
-        CURLOPT_ENCODING            =>  'gzip,deflate',
-        CURLOPT_FOLLOWLOCATION      =>  1,
-        CURLOPT_HEADER              =>  1,
-        CURLOPT_MAXREDIRS           =>  50,
-        CURLOPT_TIMEOUT             =>  30,
-        CURLOPT_RETURNTRANSFER      =>  1,
+        CURLINFO_HEADER_OUT         => 1,
+        CURLOPT_AUTOREFERER         => 1,
+        CURLOPT_CONNECTTIMEOUT      => 20,
+        CURLOPT_COOKIEFILE          => '',
+        CURLOPT_ENCODING            => 'gzip,deflate',
+        CURLOPT_FOLLOWLOCATION      => 1,
+        CURLOPT_HEADER              => 1,
+        CURLOPT_MAXREDIRS           => 5,
+        CURLOPT_RETURNTRANSFER      => 1,
+        CURLOPT_SSL_VERIFYPEER      => 0,
+        CURLOPT_TIMEOUT             => 30,
     ];
 
     /**
@@ -59,6 +61,13 @@ class Crawler extends RollingCurl
      * @var integer
      */
     private $started = false;
+
+    /**
+     * Base memory usage on load
+     *
+     * @var integer
+     */
+    private $baseMemory = 0;
 
     /**
      * Instantiate the Object
@@ -168,9 +177,10 @@ class Crawler extends RollingCurl
      */
     public function addRequests(array $urls, $method = "GET")
     {
-        if (! empty($urls)) {
-            // dd($urls);
+        if (count($urls) == 0) {
+            return false;
         }
+
         foreach ($urls as $url) {
             $this->addRequest($url, $method);
         }
@@ -190,12 +200,11 @@ class Crawler extends RollingCurl
         }
 
         if (! parse_url($url)) {
-            dd('URL failed: ' . $url);
             return false;
             // throw new InvalidArgumentException('The URL `' . $url . '` is invalid. Check your code.');
         }
 
-        if ($this->getIndex()->has($url)) {
+        if ($this->getIndex()->cacheHasRequest($url) || $this->getIndex()->has($url)) {
             return false;
         }
 
@@ -204,6 +213,7 @@ class Crawler extends RollingCurl
         }
 
         $this->request($url, $method, $postData, $headers, $this->getRequestOptions());
+        $this->getIndex()->cacheRequest($url);
         $this->numRequests++;
 
         return $this;
@@ -244,22 +254,24 @@ class Crawler extends RollingCurl
      */
     public function crawl($target = null)
     {
+        $this->setSimultaneousLimit($this->getOption('threads'));
+
         // Stuff to do on first run
         if ($this->started === false) {
             if ($target !== null) {
                 $this->setTarget($target);
                 $this->setDomain($target);
                 $this->request($target);
+                $this->numRequests++;
             } else {
                 $this->setDomain($this->getTarget());
                 $this->request($this->getTarget());
             }
 
-            if ($this->numRequests < $this->getOption('request_limit')) {
-                $this->loadTargetsFromDB($this->getOption('request_limit'));
-            } elseif (! $this->getOption('request_limit')) {
-                $this->loadTargetsFromDB(100);
-            }
+            // Save base memory usage at script runtime
+            $this->setBaseMemory();
+
+            $this->loadTargetsFromDB($this->getOption('request_limit', 0));
         }
 
         if ($this->countCompleted() == 0 && ! $this->countPending()) {
@@ -267,7 +279,8 @@ class Crawler extends RollingCurl
         }
 
         $this->started = true;
-        $this->execute();
+        $this->log('Starting crawling with <strong>' . $this->countPending() . ' pending requests</strong>. The request limit is ' . $this->getOption('request_limit', 0) . '. Base memory usage: ' . formatSizeUnits($this->logMemoryUsage()), true);
+        $this->crawlUrls();
     }
 
     /**
@@ -279,13 +292,43 @@ class Crawler extends RollingCurl
      */
     public function callback(Request $request, RollingCurl $rollingCurl)
     {
-        $this->log('#' . $this->countCompleted() . ' - ' . $request->getUrl() . '<br />');
+        $this->getIndex()->cacheUnsetRequest($request->getUrl());
+        $httpCode = array_get($request->getResponseInfo(), 'http_code', false);
 
-        $this->getIndex()->add($request->getUrl());
+        $this->getIndex()->add($request->getUrl(), ['last_http_code' => $httpCode]);
 
-        $newLinks = $this->getParser()->parseHtml($request, $rollingCurl);
+        if ($httpCode == 200) {
+            $newLinks = $this->getParser()->parseHtml($request);
 
-        $this->crawl();
+            if (is_array($newLinks) && count($newLinks) > 0) {
+                $this->addRequests($newLinks);
+            }
+        }
+
+        // Logging
+        $this->logCallback($request, $httpCode);
+
+        // Garbage collect
+        unset($request, $httpCode, $newLinks);
+
+        $this->clearCompleted();
+        $this->prunePendingRequestQueue();
+        $this->crawlUrls();
+    }
+
+    /**
+     * Recursively parse any more URL's added to the queue
+     *
+     * @return void
+     */
+    public function crawlUrls()
+    {
+        if (! $this->running) {
+            $this->execute();
+        } elseif ($this->countPending() < ($this->getSimultaneousLimit() * 3) && $this->getOption('request_limit') == 0) {
+            $this->loadTargetsFromDB($this->getOption('request_limit', 0));
+            $this->log('- Pending requests low! Adding uncrawled pages from the database.', true);
+        }
     }
 
     /*
@@ -340,10 +383,10 @@ class Crawler extends RollingCurl
     public function loadTargetsFromDB($limit)
     {
         $num = ($limit - $this->countPending());
-        $num = $num > 100 ? 100 : $num;
-
         $urls = $this->getIndex()->getUncrawledUrls($num);
+
         // dd(json_encode($urls));
+        $this->log('- Loaded ' . number_format(count($urls)) . ' URL\'s from the database into the request queue', true);
         $this->addRequests($urls);
     }
 
@@ -373,11 +416,14 @@ class Crawler extends RollingCurl
     * @param  string $message
     * @return void
     */
-    public function log($message)
+    public function log($message, $br = false)
     {
         if ($this->debug === true) {
             if (is_string($message)) {
-                echo $message . '<br />';
+                echo $message . ' ';
+                if ($br === true) {
+                    echo '<br />';
+                }
             } elseif (is_array($message)) {
                 echo '<ul>';
                 foreach ($message as $m) {
@@ -386,5 +432,52 @@ class Crawler extends RollingCurl
                 echo '</ul>';
             }
         }
+    }
+
+    /**
+     * Logging stuff
+     *
+     * @param  Request $request
+     * @param  integer  $httpCode
+     * @return void
+     */
+    private function logCallback(Request $request, $httpCode)
+    {
+        $this->log('#' . $this->countCompleted());
+        $this->log('<strong>Code:</strong> ' . $httpCode);
+        $this->log('<strong>Pending:</strong> ' . $this->countPending());
+        $this->log('<strong>Active:</strong> ' . $this->countActive());
+        $this->log('<strong>Memory:</strong> ' . formatSizeUnits($this->logMemoryUsage()));
+        $this->log('<strong>AVG:</strong> ' . $this->logAvgMemoryUsage());
+        $this->log('<strong>URL:</strong> ' . $request->getUrl());
+        $this->log('<br />');
+    }
+
+    /**
+     * Set the base memory usage on runtime
+     */
+    private function setBaseMemory()
+    {
+        $this->baseMemory = memory_get_usage();
+    }
+
+    /**
+     * Get the memory usage without the initial load memory
+     *
+     * @return integer
+     */
+    private function logMemoryUsage()
+    {
+        return (memory_get_usage() - $this->baseMemory);
+    }
+
+    /**
+     * Log the current average memory usage per completed request
+     *
+     * @return string
+     */
+    private function logAvgMemoryUsage()
+    {
+        return formatSizeUnits($this->logMemoryUsage() / $this->countCompleted());
     }
 }

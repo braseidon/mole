@@ -1,5 +1,7 @@
 <?php namespace Braseidon\Mole\Parser\Types;
 
+use Braseidon\RollingCurl\RollingCurl;
+
 class InternalLinks extends AbstractParser implements ParserTypeInterface
 {
 
@@ -71,27 +73,26 @@ class InternalLinks extends AbstractParser implements ParserTypeInterface
      * @param  string $html
      * @return array
      */
-    public function run($html)
+    public function run($html, RollingCurl $rollingCurl)
     {
         // Parse - URL's
         if (preg_match_all($this->pattern, $html, $matches, PREG_PATTERN_ORDER)) {
             $matches = array_unique($matches[1]);
             // dd($matches);
 
-            foreach ($matches as $k => $link) {
-                if (! $link = $this->parse($link)) {
+            foreach ($matches as $k => $url) {
+                if (! $url = $this->parse($url)) {
                     continue;
                 }
 
                 // Add URL as request
-                $this->addMatch($link);
+                // $rollingCurl->addRequest($url);
+                // $this->addMatch($link);
             }
-
-            // Garbage collect
-            unset($matches, $html);
         }
 
-        return $this->getMatches();
+        // Garbage collect
+        unset($matches, $html);
     }
 
     /**
@@ -117,17 +118,22 @@ class InternalLinks extends AbstractParser implements ParserTypeInterface
         if ($this->getOption('max_depth', 0) > 0 && strpos($url, 'http') === false && substr_count($url, '/') > $this->getOption('max_depth', 0)) {
             return false;
         }
-        if (strpos($url, 'http') === false && strpos($url, '/') === 0) {              // Check for a relative path starting with a forward slash
-            $url = $this->domain['domain_full'] . $url;                               // Prefix the full domain
-        } elseif (strpos($url, 'http') === false && strpos($url, '/') === false) {    // Check for a same directory reference
+        if (strpos($url, 'http') === false && strpos($url, '/') === 0) {
+            // Check for a relative path starting with a forward slash
+            // Prefix the full domain
+            $url = $this->domain['domain_full'] . $url;
+        } elseif (strpos($url, 'http') === false && strpos($url, '/') === false) {
+            // Check for a same directory reference
             if (strpos($url, 'www.') !== false) {
                 continue;
             }
             $url = $this->domain['domain_full'] . '/' . $url;
-        } elseif (strpos($url, 'mailto:') !== false) {                                 // Dont index email addresses
-            // $this->parser->addMatch(str_replace('mailto:', '', $url));
+        } elseif (strpos($url, 'mailto:') !== false) {
+            // Dont index email addresses
+            dd($url);
             return false;
-        } elseif (strpos($url, $this->domain['domain_plain']) === false) {             // Skip url if it isnt on the same domain
+        } elseif (strpos($url, $this->domain['domain_plain']) === false) {
+            // Skip url if it isnt on the same domain
             return false;
         }
 

@@ -2,7 +2,6 @@
 
 use Braseidon\Mole\Parser\Types\Emails;
 use Braseidon\Mole\Parser\Types\ExternalLinks;
-use Braseidon\Mole\Parser\Types\InternalLinks;
 use Braseidon\Mole\Traits\UsesConfig;
 
 class ParserFactory
@@ -28,21 +27,10 @@ class ParserFactory
     {
         $parser = new Parser(
             $this->getAllOptions(),
-            $this->getInternalLinks($this->getAllOptions()),
             $this->getEmails($this->getAllOptions())
         );
 
         return $parser;
-    }
-
-    /**
-     * Get the InternalLinks object
-     *
-     * @return InternalLinks
-     */
-    protected function getInternalLinks()
-    {
-        return new InternalLinks();
     }
 
     /**

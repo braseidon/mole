@@ -30,6 +30,13 @@ class Index implements IndexInterface
     protected $domain = [];
 
     /**
+     * Newly added URLs go here
+     *
+     * @var array
+     */
+    protected $requestCache = [];
+
+    /**
      * Instantiate the Object
      *
      * @param array $config
@@ -42,7 +49,8 @@ class Index implements IndexInterface
 
         $this->mergeOptions($config);
 
-        $this->cache = \App::make('cache');
+        // Turn off query logging
+        DB::connection()->disableQueryLog();
     }
 
     /*
@@ -67,7 +75,7 @@ class Index implements IndexInterface
         //     return true;
         // }
 
-        if ($this->checkDB($url)) {
+        if ($this->checkIfFirstRequest($url)) {
             return true;
         }
 
@@ -79,7 +87,7 @@ class Index implements IndexInterface
      *
      * @param string $url
      */
-    public function add($url)
+    public function add($url, $data = [])
     {
         if (empty($url)) {
             throw new InvalidArgumentException('You cannot index `url` when it is empty.');
@@ -92,19 +100,35 @@ class Index implements IndexInterface
         $check = $this->isPageIndexed($url);
 
         if ($check->count() == 0) {
-            $this->addToDB($url);
+            $this->addToDB($url, $data);
         } else {
-            $this->incrementDB($url);
+            $this->incrementDB($url, $data);
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Index - Cache
-    |--------------------------------------------------------------------------
-    |
-    |
-    */
+    public function attempted($url, $httpCode)
+    {
+        $data = [
+            'last_http_code' => $httpCode
+        ];
+
+        $this->attemptedUrl($url, $data);
+    }
+
+    /**
+     * Returns the count of URLs
+     *
+     * @return integer
+     */
+    public function count()
+    {
+        return DB::table($this->table['table'])->select('id')->count();
+    }
+
+    public function all()
+    {
+        return DB::table($this->table['table'])->all();
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -133,7 +157,7 @@ class Index implements IndexInterface
      * @param  string $string
      * @return bool
      */
-    private function checkDB($string)
+    private function checkIfFirstRequest($string)
     {
         $check = $this->isPageIndexed($string);
         $check = $check->where('crawled', '=', 1);
@@ -143,7 +167,7 @@ class Index implements IndexInterface
             return true;
         }
 
-        $this->addToDB($string, true);
+        $this->addToDB($string, [], true);
 
         return false;
     }
@@ -154,14 +178,14 @@ class Index implements IndexInterface
      * @param string $string
      * @return void
      */
-    private function addToDB($string, $dontIncrement = false)
+    private function addToDB($string, $data = [], $dontIncrement = false)
     {
         $check = $this->isPageIndexed($string)->count();
 
-        if (empty($check)) {
+        if ($check == 0) {
             $this->addToDBInsert($string);
         } elseif (count($check) == 1 && $dontIncrement === false) {
-            $this->incrementDB($string);
+            $this->incrementDB($string, $data);
         } elseif (count($check) > 1) {
             throw new \Exception('Looks like there are duplicate URLs in the database.');
         }
@@ -185,51 +209,76 @@ class Index implements IndexInterface
     /**
      * Update the DB for a pageview
      *
-     * @param  integer $id
+     * @param  string $string
      * @return void
      */
-    private function incrementDB($string)
+    private function incrementDB($string, array $data)
     {
+        $data['crawled'] = 1;
+
         DB::table($this->table['table'])
             ->where('target', '=', $this->domain['domain_plain'])
             ->where('url', '=', $string)
-            ->increment('crawl_count', 1, ['crawled' => 1]);
+            ->increment('crawl_count', 1, $data);
     }
 
     /**
-     * Get un-crawled URL's when needed
+     * Update the HTTP attempts and HTTP code of a URL
      *
-     * @param  integer $num
-     * @return array
+     * @param  string $url
+     * @param  array $data
+     * @return void
      */
-    public function getUncrawledUrls($num = 100)
+    private function attemptedUrl($url, $data)
     {
-        return DB::table($this->table['table'])
+        DB::table($this->table['table'])
             ->where('target', '=', $this->domain['domain_plain'])
-            ->where('crawled', '=', 0)
-            ->where('crawl_count', '=', 0)
-            ->limit($num)
-            ->lists('url');
+            ->where('url', '=', $url);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Request Cache
+    |--------------------------------------------------------------------------
+    |
+    |
+    */
+
+    /**
+     * Add a URL to the cache array
+     *
+     * @param  string $url
+     * @return void
+     */
+    public function cacheRequest($url)
+    {
+        $this->requestCache[$url] = true;
     }
 
     /**
-     * Returns the count of URLs
+     * Check if the request cache has a URL
      *
-     * @return integer
+     * @param  string $url
+     * @return void
      */
-    public function count()
+    public function cacheHasRequest($url)
     {
-        return DB::table($this->table['table'])->select('id')->count();
+        if (isset($this->requestCache[$url])) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
-     * Return the URL array
+     * After incrementing row, unset the URL from the cache array
      *
-     * @return arrays
+     * @param  string $url
+     * @return void
      */
-    public function all()
+    public function cacheUnsetRequest($url)
     {
-        return $this->index;
+        unset($this->requestCache[$url]);
     }
 
     /*
@@ -239,6 +288,25 @@ class Index implements IndexInterface
     |
     |
     */
+
+    /**
+     * Get un-crawled URL's when needed
+     *
+     * @param  integer $num
+     * @return array
+     */
+    public function getUncrawledUrls($num = 100)
+    {
+        $num = ($num > 20 || $num < 1) ? 20 : $num;
+
+        return DB::table($this->table['table'])
+            ->where('target', '=', $this->domain['domain_plain'])
+            ->where('crawled', '=', 0)
+            ->where('crawl_count', '=', 0)
+            ->orderByRaw("RAND()")
+            ->limit($num)
+            ->lists('url');
+    }
 
     /**
      * Clean the URL for consistent index checking

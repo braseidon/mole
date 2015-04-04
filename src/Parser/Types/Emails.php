@@ -90,6 +90,8 @@ class Emails extends AbstractParser implements ParserTypeInterface
                 $this->addToIndex($email);
             }
         }
+
+        unset($emails);
     }
 
     /*
