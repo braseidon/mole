@@ -1,6 +1,6 @@
 <?php namespace Braseidon\Mole\Parser;
 
-use Braseidon\Mole\Api\CacheInterface;
+use Braseidon\Mole\Index\CacheInterface;
 use Braseidon\Mole\Parser\Types\AbstractParser;
 use Braseidon\Mole\Parser\Types\InternalLinks;
 use Braseidon\Mole\Parser\Types\Emails;

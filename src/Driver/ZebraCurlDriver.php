@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Mole\Drivers;
+<?php namespace Braseidon\Mole\Driver;
 
 use Zebra_cURL;
 

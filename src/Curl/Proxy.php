@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Mole\Http;
+<?php namespace Braseidon\Mole\Curl;
 
 use Exception;
 use InvalidArgumentException;

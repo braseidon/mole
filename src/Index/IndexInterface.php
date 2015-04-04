@@ -1,4 +1,4 @@
-<?php namespace Braseidon\Mole\Api;
+<?php namespace Braseidon\Mole\Index;
 
 interface IndexInterface
 {

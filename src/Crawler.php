@@ -1,8 +1,8 @@
 <?php namespace Braseidon\Mole;
 
-use Braseidon\Mole\Api\Index;
-use Braseidon\Mole\Http\Proxy;
-use Braseidon\Mole\Http\UserAgent;
+use Braseidon\Mole\Index\Index;
+use Braseidon\Mole\Curl\Proxy;
+use Braseidon\Mole\Curl\UserAgent;
 use Braseidon\Mole\Parser\Parser;
 use Braseidon\Mole\Traits\UsesConfig;
 use Braseidon\Mole\Traits\ZebraTrait;
